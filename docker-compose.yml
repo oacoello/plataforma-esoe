@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  esoe-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: esoe-sms-platform
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - DATABASE_URL=postgresql://esoe_admin:${DB_PASSWORD:-esoe_secure_2026}@esoe-db:5432/esoe_sms
+      - JWT_SECRET=${JWT_SECRET:-esoe_jwt_secret_key_change_in_prod}
+    depends_on:
+      esoe-db:
+        condition: service_healthy
+    networks:
+      - esoe-net
+
+  esoe-db:
+    image: postgres:16-alpine
+    container_name: esoe-sms-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=esoe_admin
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-esoe_secure_2026}
+      - POSTGRES_DB=esoe_sms
+    volumes:
+      - esoe_pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U esoe_admin -d esoe_sms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - esoe-net
+
+volumes:
+  esoe_pgdata:
+
+networks:
+  esoe-net:
+    driver: bridge
