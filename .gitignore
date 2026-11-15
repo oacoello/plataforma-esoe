@@ -1,0 +1,21 @@
+node_modules/
+coverage/
+npm-debug.log*
+*.log
+
+# Secretos y configuracion local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Herramientas locales
+vault/
