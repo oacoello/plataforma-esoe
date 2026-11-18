@@ -146,8 +146,97 @@ const ESQUEMAS = {
     obligatorios: ['dni', 'nombres', 'apellidos', 'titulo'],
     mayusculas: ['dni'],
     cruzadas: reglasDePersona
+  },
+  // SMS-04. Carga academica.
+  clase: {
+    campos: {
+      codigo_clase: reglas.codigo(30), periodo_id: reglas.uuid, promocion_id: reglas.uuid,
+      materia_id: reglas.uuid, catedratico_id: reglas.uuid, horario: reglas.texto(120),
+      aula: reglas.texto(50, { obligatorio: false }), activa: reglas.booleano
+    },
+    obligatorios: ['codigo_clase', 'periodo_id', 'promocion_id', 'materia_id', 'catedratico_id', 'horario'],
+    mayusculas: ['codigo_clase'],
+    cruzadas: () => {}
   }
 };
+
+// --- SMS-04: notas y asistencia ----------------------------------------------
+
+const NOTAS = ['parcial_1', 'parcial_2', 'parcial_3', 'acumulativo'];
+const ESTADOS_ASISTENCIA = ['PRESENTE', 'AUSENTE', 'TARDANZA', 'EXCUSA'];
+const MAX_REGISTROS = 300;
+
+// Escala 0-100 con hasta dos decimales, como la columna NUMERIC(5,2): un valor
+// con mas decimales se rechaza en lugar de redondearse a escondidas.
+function notaInvalida(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return 'Debe ser un numero.';
+  if (v < 0 || v > 100) return 'Debe estar entre 0 y 100.';
+  if (Math.abs(v * 100 - Math.round(v * 100)) > 1e-9) return 'Admite hasta dos decimales.';
+  return null;
+}
+
+// Cambio parcial de las notas de un estudiante en una clase.
+function validarNotas(cuerpo) {
+  if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo)) {
+    return { datos: {}, campos: { _cuerpo: 'Se esperaba un objeto JSON.' } };
+  }
+  const campos = {};
+  const datos = {};
+  for (const [nombre, valor] of Object.entries(cuerpo)) {
+    if (!NOTAS.includes(nombre)) { campos[nombre] = 'Campo no admitido.'; continue; }
+    const error = notaInvalida(valor);
+    if (error) campos[nombre] = error;
+    else datos[nombre] = valor;
+  }
+  if (!Object.keys(cuerpo).length) campos._cuerpo = 'No hay nada que cambiar.';
+  return { datos, campos };
+}
+
+// Una sesion de asistencia: fecha, tema y un registro por estudiante.
+function validarAsistencia(cuerpo) {
+  if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo)) {
+    return { datos: {}, campos: { _cuerpo: 'Se esperaba un objeto JSON.' } };
+  }
+  const campos = {};
+  for (const nombre of Object.keys(cuerpo)) {
+    if (!['fecha', 'tema_impartido', 'registros'].includes(nombre)) campos[nombre] = 'Campo no admitido.';
+  }
+  const datos = { tema_impartido: null, registros: [] };
+  const errorFecha = reglas.fecha(cuerpo.fecha);
+  if (errorFecha) campos.fecha = errorFecha;
+  else if (cuerpo.fecha > new Date().toISOString().slice(0, 10)) campos.fecha = 'No se registra asistencia de un dia futuro.';
+  else datos.fecha = cuerpo.fecha;
+  const errorTema = reglas.texto(200, { obligatorio: false })(cuerpo.tema_impartido);
+  if (errorTema) campos.tema_impartido = errorTema;
+  else if (typeof cuerpo.tema_impartido === 'string' && cuerpo.tema_impartido.trim()) datos.tema_impartido = cuerpo.tema_impartido.trim();
+
+  const { registros } = cuerpo;
+  if (!Array.isArray(registros) || !registros.length) {
+    campos.registros = 'Debe traer al menos un registro.';
+  } else if (registros.length > MAX_REGISTROS) {
+    campos.registros = `Admite hasta ${MAX_REGISTROS} registros.`;
+  } else {
+    const vistos = new Set();
+    registros.forEach((r, i) => {
+      const en = `registros[${i}]`;
+      if (!r || typeof r !== 'object' || Array.isArray(r)) { campos[en] = 'Se esperaba un objeto.'; return; }
+      const ajeno = Object.keys(r).find((k) => !['estudiante_id', 'estado', 'observacion'].includes(k));
+      if (ajeno) { campos[`${en}.${ajeno}`] = 'Campo no admitido.'; return; }
+      if (reglas.uuid(r.estudiante_id)) { campos[`${en}.estudiante_id`] = 'Debe ser un identificador valido.'; return; }
+      if (vistos.has(r.estudiante_id.toLowerCase())) { campos[`${en}.estudiante_id`] = 'Estudiante repetido en la lista.'; return; }
+      vistos.add(r.estudiante_id.toLowerCase());
+      if (!ESTADOS_ASISTENCIA.includes(r.estado)) {
+        campos[`${en}.estado`] = `Valor no admitido. Use: ${ESTADOS_ASISTENCIA.join(', ')}.`;
+        return;
+      }
+      const errorObs = reglas.texto(255, { obligatorio: false })(r.observacion);
+      if (errorObs) { campos[`${en}.observacion`] = errorObs; return; }
+      const observacion = typeof r.observacion === 'string' && r.observacion.trim() ? r.observacion.trim() : null;
+      datos.registros.push({ estudiante_id: r.estudiante_id.toLowerCase(), estado: r.estado, observacion });
+    });
+  }
+  return { datos, campos };
+}
 
 // actual: al editar, la fila guardada; las reglas cruzadas se aplican sobre la
 // combinacion (lo guardado mas lo que cambia), no solo sobre lo enviado.
@@ -182,4 +271,7 @@ function validar(tipo, cuerpo, { parcial = false, actual = {} } = {}) {
   return { datos, campos };
 }
 
-module.exports = { validar, fechaValida, MODALIDADES, CONDICIONES, ESTADOS_ESTUDIANTE, TIPOS_SANGRE, ESQUEMAS };
+module.exports = {
+  validar, validarNotas, validarAsistencia, fechaValida,
+  MODALIDADES, CONDICIONES, ESTADOS_ESTUDIANTE, TIPOS_SANGRE, NOTAS, ESTADOS_ASISTENCIA, ESQUEMAS
+};
