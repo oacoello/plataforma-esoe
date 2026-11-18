@@ -27,10 +27,23 @@ async function principal() {
   }
 }
 
-principal().catch((error) => {
-  // Los errores de migracion ya traen un mensaje para personas; los demas
-  // (sin conexion, credenciales) se muestran sin la traza completa.
-  const mensaje = error instanceof ErrorDeMigracion ? error.message : `No se pudo migrar: ${error.message}`;
-  console.error(`[ESOE-SMS] ${mensaje}`);
-  process.exitCode = 1;
-});
+// Los errores de migracion ya traen un mensaje para personas; los demas (sin
+// conexion, credenciales) se muestran sin la traza. Un fallo de red puede venir
+// sin mensaje y con el detalle en su codigo o en sus errores internos.
+function mensajeDeFallo(error) {
+  if (error instanceof ErrorDeMigracion) return error.message;
+  const internos = (error && error.errors) || [];
+  const detalle = (error && error.message)
+    || [error && error.code, ...internos.map((e) => e.code || e.message)].filter(Boolean).join(', ')
+    || String(error);
+  return `No se pudo migrar: ${detalle}`;
+}
+
+if (require.main === module) {
+  principal().catch((error) => {
+    console.error(`[ESOE-SMS] ${mensajeDeFallo(error)}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { mensajeDeFallo };

@@ -206,3 +206,15 @@ test('migraciones: sin cliente no hace nada', async () => {
   await assert.rejects(migrar({}), (e) => e.codigo === 'SIN_CLIENTE');
   await assert.rejects(migrar({ cliente: {} }), (e) => e.codigo === 'SIN_CLIENTE');
 });
+
+test('migrar: un fallo de red sin mensaje se informa con su codigo', () => {
+  // Un AggregateError de conexion (ECONNREFUSED en IPv4 e IPv6) llega con
+  // message vacio: el contenedor decia "No se pudo migrar: " y nada mas.
+  const { mensajeDeFallo } = require('../scripts/migrar');
+  const rechazo = Object.assign(new AggregateError([
+    Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), { code: 'ECONNREFUSED' })
+  ], ''), { code: 'ECONNREFUSED' });
+  assert.equal(mensajeDeFallo(rechazo), 'No se pudo migrar: ECONNREFUSED, ECONNREFUSED');
+  assert.equal(mensajeDeFallo(new Error('password authentication failed')), 'No se pudo migrar: password authentication failed');
+  assert.equal(mensajeDeFallo(new ErrorDeMigracion('mensaje propio', 'X')), 'mensaje propio');
+});
