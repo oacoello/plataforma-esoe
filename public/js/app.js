@@ -608,7 +608,7 @@ function renderEstudiantesView() {
 
     return `
       <tr>
-        <td><strong style="color:var(--texto); font-family:monospace; font-size:var(--fs-sm);">${esc(est.codigoAlumno)}</strong></td>
+        <td><strong style="color:var(--texto); font-variant-numeric:tabular-nums; font-size:var(--fs-sm);">${esc(est.codigoAlumno)}</strong></td>
         <td>${esc(est.dni)}</td>
         <td>
           <strong style="display:block;">${esc(est.apellidos)}, ${esc(est.nombres)}</strong>
@@ -928,7 +928,7 @@ function renderAsistenciaView() {
 
     return `
       <tr>
-        <td><strong style="font-family:monospace;">${esc(est.codigoAlumno)}</strong></td>
+        <td><strong style="font-variant-numeric:tabular-nums;">${esc(est.codigoAlumno)}</strong></td>
         <td>
           <strong>${esc(est.apellidos)}, ${esc(est.nombres)}</strong>
           <small style="display:block; color:var(--piedra);">${esc(est.condicion === 'MILITAR' ? est.grado : 'Civil')}</small>
@@ -1088,7 +1088,7 @@ function renderCalificacionesView() {
 
     return `
       <tr>
-        <td><strong style="font-family:monospace;">${esc(est.codigoAlumno)}</strong></td>
+        <td><strong style="font-variant-numeric:tabular-nums;">${esc(est.codigoAlumno)}</strong></td>
         <td>
           <strong>${esc(est.apellidos)}, ${esc(est.nombres)}</strong>
           <small style="display:block; color:var(--piedra);">${esc(est.condicion === 'MILITAR' ? est.grado : 'Civil')}</small>
@@ -1270,7 +1270,7 @@ function renderBoletinView() {
           </div>
           <div>
             <small style="color:var(--piedra); text-transform:uppercase; font-weight:700; font-size:var(--fs-meta);">Identificación Oficial</small>
-            <strong style="display:block; font-size:var(--fs-base); font-family:monospace;">Código: ${esc(est.codigoAlumno)}</strong>
+            <strong style="display:block; font-size:var(--fs-base); font-variant-numeric:tabular-nums;">Código: ${esc(est.codigoAlumno)}</strong>
             <span style="font-size:var(--fs-sm); color:var(--piedra);">DNI: ${esc(est.dni)} | Sangre: ${esc(est.tipoSangre)}</span>
           </div>
           <div>

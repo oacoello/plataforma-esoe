@@ -160,8 +160,6 @@
   --radius: 4px;
   --font-sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'DM Serif Display', Georgia, serif;
-  /* Rotulos de ficha tecnica: mayusculas espaciadas en monoespaciada del sistema. */
-  --font-mono: 'Courier New', ui-monospace, monospace;
   --radio-tarjeta: 10px;
 }
 
@@ -241,7 +239,7 @@ svg { flex-shrink: 0; }
   background: var(--papel); border: 1px solid var(--titulo);
 }
 .punto-n {
-  font-family: var(--font-mono); font-size: var(--fs-meta); font-weight: 400;
+  font-family: var(--font-sans); font-size: var(--fs-meta); font-weight: 500;
   min-width: 26px; padding: 2px 6px; border-radius: 999px; text-align: center;
   background: var(--estructura); color: var(--sobre-estructura);
 }
@@ -283,10 +281,10 @@ svg { flex-shrink: 0; }
 .login-form-panel { max-width: var(--columna-acceso); padding: 48px 56px 120px; }
 
 .rotulo {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-meta);
-  font-weight: 400;
-  letter-spacing: 0.14em;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--piedra);
 }
@@ -437,10 +435,10 @@ svg { flex-shrink: 0; }
 .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
 
 .nav-section-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-meta);
-  font-weight: 400;
-  letter-spacing: 0.14em;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sobre-estructura-tenue);
   padding: 16px 12px 6px;
@@ -510,7 +508,7 @@ svg { flex-shrink: 0; }
 .topbar-left { display: flex; align-items: center; gap: 14px; }
 .page-title-block h1 { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-xl); letter-spacing: -0.2px; line-height: 1; color: var(--titulo); }
 .page-title-block { display: flex; flex-direction: column-reverse; gap: 4px; }
-.page-title-block p { font-family: var(--font-mono); font-size: var(--fs-meta); letter-spacing: 0.14em; text-transform: uppercase; color: var(--piedra); line-height: 1; }
+.page-title-block p { font-family: var(--font-sans); font-size: var(--fs-meta); letter-spacing: 0.08em; text-transform: uppercase; color: var(--piedra); line-height: 1; }
 .period-pill { display: none; }
 .topbar-right { display: flex; align-items: center; }
 
@@ -538,7 +536,7 @@ svg { flex-shrink: 0; }
 .stat-icon-box { display: flex; width: 44px; height: 44px; background: var(--superficie); border-radius: 12px; align-items: center; justify-content: center; }
 .stat-icon-box .ico { width: 24px; height: 24px; color: var(--estructura); }
 .stat-card-info { min-width: 0; }
-.stat-card-info span { display: block; font-family: var(--font-mono); font-size: var(--fs-meta); font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase; color: var(--piedra); }
+.stat-card-info span { display: block; font-family: var(--font-sans); font-size: var(--fs-meta); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--piedra); }
 .stat-card-info h3 { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-display); line-height: 1.1; margin: 6px 0 2px; color: var(--titulo); }
 .stat-card-info small { display: none; }
 
@@ -611,10 +609,10 @@ select.form-control { width: auto; min-width: 180px; max-width: 100%; }
 .table-responsive { width: 100%; overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 .data-table th {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-meta);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--texto);
   background: var(--superficie);
