@@ -6,7 +6,12 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
 const { crearAutenticacion } = require('./auth');
+const { crearPermisos } = require('./permisos');
 const { crearRutasDeIntegraciones } = require('./integraciones/rutas');
+const { crearRutasAcademicas } = require('./academico/rutas');
+const { crearRutasEstructura } = require('./academico/estructura');
+const { crearRutasExpedientes } = require('./academico/expedientes');
+const { crearRutasDeClases } = require('./academico/clases');
 
 const DIRECTORIO_PUBLICO = path.join(__dirname, '..', 'public');
 
@@ -19,10 +24,10 @@ function politicaDeContenido(config) {
     directives: {
       'default-src': ["'self'"],
       'script-src': ["'self'", ...clerk, ...desafio],
-      // Deuda registrada (BACKLOG SEC-04): la interfaz aun usa manejadores en linea.
-      'script-src-attr': ["'unsafe-inline'"],
-      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      'font-src': ["'self'", 'https://fonts.gstatic.com'],
+      // Sin manejadores en linea: los eventos se delegan desde public/js/eventos.js.
+      'script-src-attr': ["'none'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'font-src': ["'self'"],
       'img-src': ["'self'", 'data:', ...(config.clerk.habilitado ? ['https://img.clerk.com'] : [])],
       'connect-src': ["'self'", ...clerk],
       'worker-src': ["'self'", 'blob:'],
@@ -88,6 +93,13 @@ function crearApp(config, dependencias = {}) {
   });
 
   app.use('/api/integraciones', crearRutasDeIntegraciones({ config, auth, db }));
+
+  // Consultas academicas: cada una tras su guardian de pertenencia (SEC-06).
+  const permisos = db ? crearPermisos(db) : null;
+  app.use('/api', crearRutasAcademicas({ auth, db, permisos }));
+  app.use('/api', crearRutasEstructura({ auth, db }));
+  app.use('/api', crearRutasExpedientes({ auth, db, permisos }));
+  app.use('/api', crearRutasDeClases({ auth, db, permisos }));
 
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Recurso no encontrado.' });
