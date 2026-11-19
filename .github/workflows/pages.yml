@@ -2,6 +2,8 @@ name: Publicar vista web
 
 # Publica la interfaz (public/) en GitHub Pages. Sin servidor detras, la
 # interfaz arranca en modo demostracion: los datos quedan en el navegador.
+# Pages se activa una sola vez en Settings > Pages > Source: GitHub Actions;
+# mientras no este activo, el flujo termina sin publicar y lo avisa.
 
 on:
   push:
@@ -18,7 +20,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      activo: ${{ steps.pages.outputs.activo }}
+    steps:
+      - id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" --silent 2>/dev/null; then
+            echo "activo=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "activo=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages no esta activo. Activelo en Settings > Pages > Source: GitHub Actions."
+          fi
+
   publicar:
+    needs: comprobar
+    if: needs.comprobar.outputs.activo == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -27,8 +48,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
