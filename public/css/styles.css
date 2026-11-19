@@ -90,7 +90,7 @@
   /* Palabra destacada del titulo de acceso: el naranja de marca no llega a 3:1
      sobre papel; este tono hondo da 5.16:1. */
   --acento-titulo: #B8440C;
-  /* Ambiente: sombras suaves, nubes y punto del reloj. */
+  /* Ambiente: sombras suaves y nubes. */
   --sombra-suave: 0 6px 18px rgba(10, 42, 53, 0.14);
   --sombra-flotante: 0 10px 30px rgba(10, 42, 53, 0.18);
   --nube: rgba(246, 250, 251, 0.55);
@@ -370,8 +370,6 @@ svg { flex-shrink: 0; }
 .barra-ambiente .control-texto button { border-right: none; border-radius: 6px; }
 
 .reloj { display: inline-flex; align-items: center; gap: 8px; color: var(--titulo); }
-.reloj-punto { width: 6px; height: 6px; border-radius: 50%; background: var(--positivo); animation: latido 2.4s ease-in-out infinite; }
-@keyframes latido { 50% { opacity: 0.3; } }
 .topbar-right { gap: 6px; }
 .topbar-right .reloj { margin-right: 6px; }
 .topbar-right .ambiente-btn[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--decoracion-viva); }
