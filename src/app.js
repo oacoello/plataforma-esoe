@@ -69,9 +69,24 @@ function crearApp(config, dependencias = {}) {
 
   app.use(express.json({ limit: '100kb' }));
 
-  app.get('/api/health', (req, res) => {
+  // Salud del servicio y de su base. Un monitor externo (o el HEALTHCHECK del
+  // contenedor) ve 503 si la base no responde; el motivo interno no se expone.
+  app.get('/api/health', async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    res.json({ status: 'OK', service: 'ESOE-SMS-Platform', timestamp: new Date().toISOString() });
+    const cuerpo = { status: 'OK', service: 'ESOE-SMS-Platform', timestamp: new Date().toISOString() };
+    if (!db) return res.json({ ...cuerpo, baseDeDatos: 'SIN_CONFIGURAR' });
+    let espera;
+    try {
+      await Promise.race([
+        db.consultar('SELECT 1'),
+        new Promise((_, rechazar) => { espera = setTimeout(() => rechazar(new Error('tiempo agotado')), 3000); })
+      ]);
+      res.json({ ...cuerpo, baseDeDatos: 'OK' });
+    } catch {
+      res.status(503).json({ ...cuerpo, status: 'DEGRADADO', baseDeDatos: 'SIN_CONEXION' });
+    } finally {
+      clearTimeout(espera);
+    }
   });
 
   // Datos publicos que la interfaz necesita para iniciar sesion. Ninguno es secreto.

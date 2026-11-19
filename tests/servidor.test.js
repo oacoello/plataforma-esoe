@@ -15,6 +15,25 @@ test('salud: responde OK sin cache', async () => {
   const cuerpo = await res.json();
   assert.equal(cuerpo.status, 'OK');
   assert.ok(!Number.isNaN(Date.parse(cuerpo.timestamp)));
+  assert.equal(cuerpo.baseDeDatos, 'SIN_CONFIGURAR');
+});
+
+test('salud: dice si la base responde, y 503 sin detalles si no', async () => {
+  const sana = await levantar({}, { db: { consultar: async () => ({ rows: [{}] }) } });
+  const caida = await levantar({}, { db: { consultar: async () => { throw new Error('password authentication failed for user x'); } } });
+  try {
+    const ok = await sana.pedir('/api/health');
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).baseDeDatos, 'OK');
+    const mal = await caida.pedir('/api/health');
+    assert.equal(mal.status, 503);
+    const texto = await mal.text();
+    assert.equal(JSON.parse(texto).baseDeDatos, 'SIN_CONEXION');
+    assert.ok(!texto.includes('password'), 'el motivo interno no sale al cliente');
+  } finally {
+    await sana.cerrar();
+    await caida.cerrar();
+  }
 });
 
 test('interfaz: sirve la pagina principal y sus recursos', async () => {

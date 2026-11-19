@@ -4,10 +4,10 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 module.exports = [
-  { ignores: ['node_modules/**', 'coverage/**', 'public/js/clerk-es.js', 'public/vendor/**'] },
+  { ignores: ['node_modules/**', 'coverage/**', 'salida-vercel/**', 'public/js/clerk-es.js', 'public/vendor/**'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.js', 'tests/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
+    files: ['src/**/*.js', 'api/**/*.js', 'tests/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: globals.node },
     rules: {
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],

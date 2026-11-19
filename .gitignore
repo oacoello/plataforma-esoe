@@ -22,3 +22,6 @@ vault/
 
 # Respaldos del repositorio
 *.bundle
+
+# Carpeta que genera la construccion en Vercel
+salida-vercel/
