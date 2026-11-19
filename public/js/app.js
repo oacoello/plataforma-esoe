@@ -1056,6 +1056,12 @@ function marcarTodosPresentes(sesionId) {
 }
 
 function guardarSesionAsistencia() {
+  if (sesionReal.activa) {
+    const claseId = appState.filters.asistenciaClaseId || store.clases[0]?.id;
+    const sesion = store.asistencias.find(a => a.claseId === claseId && a.fecha === appState.filters.asistenciaFecha);
+    if (sesion) guardarAsistenciaEnServidor(sesion);
+    return;
+  }
   saveStore(store);
   showToast('Acta de asistencia de clase guardada correctamente');
 }
@@ -1168,6 +1174,10 @@ function actualizarNota(claseId, estudianteId, campo, valor) {
   let num = Number(valor);
   if (isNaN(num) || num < 0) num = 0;
   if (num > 100) num = 100;
+  if (sesionReal.activa) {
+    guardarNotaEnServidor(claseId, estudianteId, campo, Math.round(num * 100) / 100);
+    return;
+  }
 
   const cal = obtenerCalificacion(claseId, estudianteId);
   cal[campo] = num;
@@ -1470,6 +1480,10 @@ function guardarNuevoEstudiante(e) {
     estado: 'ACTIVO'
   };
 
+  if (sesionReal.activa) {
+    crearEnServidor('estudiante', nuevo, `Estudiante ${nuevo.nombres} ${nuevo.apellidos} registrado exitosamente`);
+    return;
+  }
   store.estudiantes.push(nuevo);
   saveStore(store);
   closeModal();
@@ -1543,6 +1557,10 @@ function guardarNuevoCatedratico(e) {
     activo: true
   };
 
+  if (sesionReal.activa) {
+    crearEnServidor('catedratico', nuevo, `Catedrático ${formatNombreConGrado(nuevo)} registrado correctamente`);
+    return;
+  }
   store.catedraticos.push(nuevo);
   saveStore(store);
   closeModal();
@@ -1589,7 +1607,7 @@ function openModalNuevoPeriodo() {
 
 function guardarNuevoPeriodo(e) {
   e.preventDefault();
-  store.periodos.push({
+  const nuevo = {
     id: 'per-' + Date.now(),
     codigo: document.getElementById('per-codigo').value.trim(),
     nombre: document.getElementById('per-nombre').value.trim(),
@@ -1597,7 +1615,12 @@ function guardarNuevoPeriodo(e) {
     fechaInicio: document.getElementById('per-inicio').value,
     fechaFin: document.getElementById('per-fin').value,
     activo: true
-  });
+  };
+  if (sesionReal.activa) {
+    crearEnServidor('periodo', nuevo, 'Nuevo periodo lectivo habilitado');
+    return;
+  }
+  store.periodos.push(nuevo);
   saveStore(store);
   closeModal();
   renderMainView();
@@ -1636,14 +1659,19 @@ function openModalNuevaPromocion() {
 function guardarNuevaPromocion(e) {
   e.preventDefault();
   const promId = 'prom-' + Date.now();
-  store.promociones.push({
+  const nuevo = {
     id: promId,
     codigo: document.getElementById('prom-codigo').value.trim(),
     nombre: document.getElementById('prom-nombre').value.trim(),
     anioIngreso: Number(document.getElementById('prom-ingreso').value),
     anioEgreso: Number(document.getElementById('prom-egreso').value),
     activa: true
-  });
+  };
+  if (sesionReal.activa) {
+    crearEnServidor('promocion', nuevo, 'Promoción creada');
+    return;
+  }
+  store.promociones.push(nuevo);
   saveStore(store);
   closeModal();
   renderMainView();
@@ -1677,13 +1705,18 @@ function openModalNuevaMateria() {
 
 function guardarNuevaMateria(e) {
   e.preventDefault();
-  store.materias.push({
+  const nuevo = {
     id: 'mat-' + Date.now(),
     codigo: document.getElementById('mat-codigo').value.trim(),
     nombre: document.getElementById('mat-nombre').value.trim(),
     uv: Number(document.getElementById('mat-uv').value),
     horasSemanales: 4
-  });
+  };
+  if (sesionReal.activa) {
+    crearEnServidor('materia', nuevo, 'Materia agregada al catálogo institucional');
+    return;
+  }
+  store.materias.push(nuevo);
   saveStore(store);
   closeModal();
   renderMainView();
@@ -1742,7 +1775,7 @@ function openModalNuevaClase() {
 
 function guardarNuevaClase(e) {
   e.preventDefault();
-  store.clases.push({
+  const nuevo = {
     id: 'cls-' + Date.now(),
     codigoClase: document.getElementById('cls-codigo').value.trim(),
     periodoId: document.getElementById('cls-periodo').value,
@@ -1751,7 +1784,12 @@ function guardarNuevaClase(e) {
     catedraticoId: document.getElementById('cls-catedratico').value,
     horario: document.getElementById('cls-horario').value.trim(),
     aula: document.getElementById('cls-aula').value.trim()
-  });
+  };
+  if (sesionReal.activa) {
+    crearEnServidor('clase', nuevo, 'Clase registrada');
+    return;
+  }
+  store.clases.push(nuevo);
   saveStore(store);
   closeModal();
   renderMainView();

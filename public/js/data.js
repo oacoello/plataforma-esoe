@@ -35,6 +35,8 @@ function loadStore() {
 }
 
 function saveStore(store) {
+  // Con sesion real los datos viven en el servidor (SMS-05) y no se copian al navegador.
+  if (typeof sesionReal !== 'undefined' && sesionReal.activa) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   } catch (e) {

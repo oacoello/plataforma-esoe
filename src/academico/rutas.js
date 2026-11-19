@@ -24,6 +24,7 @@ function crearRutasAcademicas({ auth, db, permisos }) {
     try {
       const { rol } = req.identidad;
       const base = `SELECT c.id, c.codigo_clase, c.horario, c.aula,
+                           c.periodo_id, c.promocion_id, c.materia_id, c.catedratico_id,
                            m.codigo AS materia_codigo, m.nombre AS materia_nombre,
                            p.codigo AS promocion_codigo
                       FROM clases c
@@ -52,7 +53,7 @@ function crearRutasAcademicas({ auth, db, permisos }) {
   rutas.get('/clases/:id/asistencia', ...conSesion, exigirClasePropia('id'), async (req, res, next) => {
     try {
       const { rows } = await db.consultar(
-        `SELECT s.id AS sesion_id, s.fecha, s.tema_impartido,
+        `SELECT s.id AS sesion_id, to_char(s.fecha, 'YYYY-MM-DD') AS fecha, s.tema_impartido,
                 d.estudiante_id, d.estado, d.observacion,
                 e.codigo_alumno, e.nombres, e.apellidos
            FROM sesiones_asistencia s
@@ -87,6 +88,29 @@ function crearRutasAcademicas({ auth, db, permisos }) {
       );
       res.set('Cache-Control', 'no-store');
       res.json({ estudianteId: req.params.id, calificaciones: rows });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Asistencia de un estudiante en todas sus clases: el propio estudiante, un
+  // catedratico que le da clase (solo de las clases que imparte) o la
+  // administracion. La interfaz la usa para el porcentaje del boletin.
+  rutas.get('/estudiantes/:id/asistencia', ...conSesion, exigirEstudiantePropio('id'), async (req, res, next) => {
+    try {
+      const soloSusClases = req.identidad.rol === 'CATEDRATICO';
+      const { rows } = await db.consultar(
+        `SELECT s.clase_id, s.id AS sesion_id, to_char(s.fecha, 'YYYY-MM-DD') AS fecha, d.estado
+           FROM detalle_asistencia d
+           JOIN sesiones_asistencia s ON s.id = d.sesion_id
+           JOIN clases c ON c.id = s.clase_id
+          WHERE d.estudiante_id = $1
+            AND ($2::uuid IS NULL OR c.catedratico_id = $2)
+          ORDER BY s.fecha DESC`,
+        [req.params.id, soloSusClases ? req.vinculo.referenciaId : null]
+      );
+      res.set('Cache-Control', 'no-store');
+      res.json({ estudianteId: req.params.id, asistencia: rows });
     } catch (error) {
       next(error);
     }

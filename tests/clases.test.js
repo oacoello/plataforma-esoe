@@ -298,3 +298,17 @@ test('clases: validacion de notas y asistencia sin base', () => {
   assert.deepEqual(Object.keys(validar('clase', {}).campos).sort(),
     ['catedratico_id', 'codigo_clase', 'horario', 'materia_id', 'periodo_id', 'promocion_id']);
 });
+
+test('clases: la asistencia de un estudiante la ven el, quien le da clase y la administracion', sinBase, async () => {
+  const ruta = `/api/estudiantes/${d.estUno}/asistencia`;
+  const propia = await json(await servidor.pedir(ruta, { headers: CARLA }));
+  assert.equal(propia.status, 200);
+  assert.ok(propia.cuerpo.asistencia.some((a) => a.clase_id === d.claseUno && a.fecha === '2026-02-10' && a.estado === 'AUSENTE'));
+  const titular = await json(await servidor.pedir(ruta, { headers: ANA }));
+  assert.equal(titular.status, 200);
+  assert.ok(titular.cuerpo.asistencia.every((a) => a.clase_id === d.claseUno), 'solo de las clases que imparte');
+  assert.equal((await servidor.pedir(ruta, { headers: LUIS })).status, 403, 'quien no le da clase no la ve');
+  assert.equal((await servidor.pedir(`/api/estudiantes/${d.estDos}/asistencia`, { headers: CARLA })).status, 403);
+  assert.equal((await servidor.pedir(ruta, { headers: ADMIN })).status, 200);
+  assert.equal((await servidor.pedir(ruta)).status, 401);
+});

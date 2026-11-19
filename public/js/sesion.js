@@ -28,6 +28,7 @@ class ErrorDeApi extends Error {
     super((cuerpo && cuerpo.error) || 'No se pudo completar la operacion.');
     this.estado = estado;
     this.codigo = cuerpo && cuerpo.codigo;
+    this.campos = cuerpo && cuerpo.campos;
   }
 }
 
@@ -76,6 +77,10 @@ async function entrarConSesionReal() {
   appState.authenticated = true;
   appState.currentRole = identidad.rol;
   appState.currentView = identidad.rol === 'ESTUDIANTE' ? 'boletin' : 'dashboard';
+
+  // SMS-05: con sesion real los datos vienen del servidor, nunca del navegador.
+  store = emptyStore();
+  await cargarDesdeServidor();
 
   mostrarPantalla('app');
   renderSidebarAndHeader();
