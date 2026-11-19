@@ -84,8 +84,8 @@ en un navegador moderno, sin servidor.
 
 Sin llaves de Clerk la interfaz arranca en **modo demostración**: datos en el navegador y acceso
 sin validar. Con las llaves en `.env`, el inicio de sesión es real, el rol lo decide el servidor y
-se habilita la conexión con otras plataformas (Moodle, INFOP). Los datos de gestión escolar
-todavía se guardan en el navegador; el camino restante está en [`docs/BACKLOG.md`](docs/BACKLOG.md).
+se habilita la conexión con otras plataformas (Moodle, INFOP). Con sesión real, los datos de gestión
+escolar viven en el servidor y no se guardan en el navegador.
 
 Antes de entregar cualquier cambio:
 
@@ -104,17 +104,4 @@ docker compose up -d --build
 
 La plataforma queda en el puerto `8080`. Al arrancar, el contenedor lleva la base a la última versión
 del esquema con las migraciones de `database/migraciones/` (`npm run migrar` hace lo mismo a mano).
-Debe publicarse siempre detrás de un proxy con HTTPS. Procedimiento completo, respaldos y reversión
-en el [manual](docs/MANUAL_DE_PROCEDIMIENTOS.md).
-
----
-
-## 5. Documentación
-
-| Documento | Contenido |
-|---|---|
-| [`docs/BLUEPRINT.md`](docs/BLUEPRINT.md) | Visión, arquitectura, seguridad, diseño y orden de construcción |
-| [`docs/LOOP_DE_DESARROLLO.md`](docs/LOOP_DE_DESARROLLO.md) | Ciclo de trabajo, definición de terminado y registro de vueltas |
-| [`docs/BACKLOG.md`](docs/BACKLOG.md) | Cola priorizada con criterios de aceptación |
-| [`docs/MANUAL_DE_PROCEDIMIENTOS.md`](docs/MANUAL_DE_PROCEDIMIENTOS.md) | Instalación, operación, secretos, incidentes y auditoría |
-| [`LECCIONES.md`](LECCIONES.md) | Errores encontrados, causa raíz y regla que los evita |
+Debe publicarse siempre detrás de un proxy con HTTPS.
