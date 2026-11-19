@@ -55,10 +55,10 @@ test('integraciones: solo administracion gestiona plataformas', { skip: omitir }
   assert.equal(moodle.estado.peticiones.length, 0, 'no debe haberse contactado la plataforma');
 });
 
-test('integraciones: el catalogo ofrece las plataformas de INFOP', { skip: omitir }, async () => {
+test('integraciones: el catalogo ofrece las plataformas de INFOP y de la UDH', { skip: omitir }, async () => {
   const { plataformas } = await app.pedir(`${RUTA}/catalogo`, { headers: como('ADMIN') }).then((r) => r.json());
   assert.deepEqual(plataformas.map((p) => p.urlBase), [
-    'https://plataformavirtual.infop.hn', 'https://academias.infop.hn'
+    'https://plataformavirtual.infop.hn', 'https://academias.infop.hn', 'https://aula.udh.edu.hn'
   ]);
   assert.ok(plataformas.every((p) => p.tipo === 'MOODLE'));
 });
