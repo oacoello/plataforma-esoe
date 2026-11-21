@@ -30,16 +30,17 @@ function crearRutasAcademicas({ auth, db, permisos }) {
                       FROM clases c
                       JOIN materias m ON m.id = c.materia_id
                       JOIN promociones p ON p.id = c.promocion_id
-                     WHERE c.activa = TRUE`;
+                     WHERE c.activa = TRUE AND c.institucion_id = $1`;
+      // SMS-06: siempre dentro de la institucion de quien pide.
       let consulta = `${base} ORDER BY c.codigo_clase`;
-      let parametros = [];
+      let parametros = [req.vinculo.institucionId];
       if (rol === 'CATEDRATICO') {
-        consulta = `${base} AND c.catedratico_id = $1 ORDER BY c.codigo_clase`;
-        parametros = [req.vinculo.referenciaId];
+        consulta = `${base} AND c.catedratico_id = $2 ORDER BY c.codigo_clase`;
+        parametros = [req.vinculo.institucionId, req.vinculo.referenciaId];
       } else if (rol === 'ESTUDIANTE') {
-        consulta = `${base} AND c.promocion_id = (SELECT promocion_id FROM estudiantes WHERE id = $1)
+        consulta = `${base} AND c.promocion_id = (SELECT promocion_id FROM estudiantes WHERE id = $2)
                     ORDER BY c.codigo_clase`;
-        parametros = [req.vinculo.referenciaId];
+        parametros = [req.vinculo.institucionId, req.vinculo.referenciaId];
       }
       const { rows } = await db.consultar(consulta, parametros);
       res.set('Cache-Control', 'no-store');

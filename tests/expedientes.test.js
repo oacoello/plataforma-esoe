@@ -69,6 +69,12 @@ before(async () => {
 
   servidor = await levantar(ENTORNO_CON_SESION, { db });
 
+  // Cada cuenta escribe dentro de su institucion: la administracion se vincula primero.
+  const liga = (proveedor, rol, referencia) => db.consultar(
+    `INSERT INTO usuarios (username, proveedor_id, rol, nombre_completo, referencia_id)
+     VALUES ($1, $1, $2, $1, $3)`, [proveedor, rol, referencia]);
+  await liga(CUENTA.admin, 'ADMIN', null);
+
   // El expediente con datos sensibles entra por la API, como en la realidad.
   const creado = await servidor.enviar('/api/estudiantes', {
     codigo_alumno: 'exp-001', nombres: 'Carla', apellidos: 'Diaz', condicion: 'MILITAR', grado: 'Cadete',
@@ -79,10 +85,6 @@ before(async () => {
   const estDos = await uno(`INSERT INTO estudiantes (codigo_alumno, dni, nombres, apellidos, fecha_nacimiento, promocion_id)
                             VALUES ('EXP-002', 'EST-0002', 'Mario', 'Lopez', '2004-07-12', $1) RETURNING id`, [promB.id]);
 
-  const liga = (proveedor, rol, referencia) => db.consultar(
-    `INSERT INTO usuarios (username, proveedor_id, rol, nombre_completo, referencia_id)
-     VALUES ($1, $1, $2, $1, $3)`, [proveedor, rol, referencia]);
-  await liga(CUENTA.admin, 'ADMIN', null);
   await liga(CUENTA.catUno, 'CATEDRATICO', catUno.id);
   await liga(CUENTA.catDos, 'CATEDRATICO', catDos.id);
   await liga(CUENTA.estUno, 'ESTUDIANTE', estUno.id);

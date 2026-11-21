@@ -44,7 +44,8 @@ function crearRutasDeClases({ auth, db, permisos }) {
 
   const { resolverVinculo, exigirClasePropia } = permisos;
   const titularOAdministracion = [auth.exigirSesion, resolverVinculo, exigirClasePropia('id')];
-  const soloAdministracion = auth.exigirRol('ADMIN');
+  // SMS-06: la carga academica se escribe solo en la institucion de quien pide.
+  const soloAdministracion = [auth.exigirRol('ADMIN'), resolverVinculo];
   const privado = (res) => res.set('Cache-Control', 'no-store');
 
   // Corre `trabajo` en una transaccion que ya sabe quien escribe.
@@ -60,15 +61,15 @@ function crearRutasDeClases({ auth, db, permisos }) {
 
   // --- Carga academica ------------------------------------------------------
 
-  rutas.post('/clases', soloAdministracion, async (req, res, next) => {
+  rutas.post('/clases', ...soloAdministracion, async (req, res, next) => {
     const { datos, campos } = validar('clase', req.body);
     if (Object.keys(campos).length) return rechazar(res, campos);
     const nombres = Object.keys(datos).filter((c) => COLUMNAS_CLASE.includes(c));
     try {
       const { rows } = await db.consultar(
-        `INSERT INTO clases (${nombres.join(', ')})
-         VALUES (${nombres.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING ${LECTURA_CLASE}`,
-        nombres.map((c) => datos[c])
+        `INSERT INTO clases (institucion_id, ${nombres.join(', ')})
+         VALUES ($1, ${nombres.map((_, i) => `$${i + 2}`).join(', ')}) RETURNING ${LECTURA_CLASE}`,
+        [req.vinculo.institucionId, ...nombres.map((c) => datos[c])]
       );
       res.status(201).json({ clase: rows[0] });
     } catch (error) {
@@ -78,10 +79,12 @@ function crearRutasDeClases({ auth, db, permisos }) {
     }
   });
 
-  rutas.put('/clases/:id', soloAdministracion, async (req, res, next) => {
+  rutas.put('/clases/:id', ...soloAdministracion, async (req, res, next) => {
     if (!esUuid(req.params.id)) return res.status(404).json({ error: 'Clase no encontrada.' });
     try {
-      const existente = await db.consultar(`SELECT ${LECTURA_CLASE} FROM clases WHERE id = $1`, [req.params.id]);
+      const existente = await db.consultar(
+        `SELECT ${LECTURA_CLASE} FROM clases WHERE id = $1 AND institucion_id = $2`,
+        [req.params.id, req.vinculo.institucionId]);
       if (!existente.rows.length) return res.status(404).json({ error: 'Clase no encontrada.' });
       const { datos, campos } = validar('clase', req.body, { parcial: true, actual: existente.rows[0] });
       if (Object.keys(campos).length) return rechazar(res, campos);

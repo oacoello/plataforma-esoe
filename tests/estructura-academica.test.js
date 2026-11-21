@@ -20,6 +20,12 @@ const PERIODO = { codigo: 'p-2026-i', nombre: 'Primer semestre 2026', modalidad:
 before(async () => {
   if (!URL_ADMIN) return;
   base = await crearBaseDePrueba();
+  // Cada cuenta trabaja dentro de su institucion (la ESOE, la predeterminada).
+  for (const [cuenta, rol] of [['user_admin', 'ADMIN'], ['user_est', 'ESTUDIANTE']]) {
+    await base.db.consultar(
+      `INSERT INTO usuarios (username, proveedor_id, rol, nombre_completo) VALUES ($1, $1, $2, $1)`,
+      [cuenta, rol]);
+  }
   servidor = await levantar(ENTORNO_CON_SESION, { db: base.db });
 });
 after(async () => {

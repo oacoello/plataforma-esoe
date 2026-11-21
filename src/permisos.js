@@ -24,7 +24,7 @@ function crearPermisos(db) {
   // asi que esto se consulta por peticion y no se guarda en memoria.
   async function expedienteDe(usuarioIdProveedor) {
     const { rows } = await db.consultar(
-      'SELECT id, rol, referencia_id, activo FROM usuarios WHERE proveedor_id = $1',
+      'SELECT id, rol, referencia_id, institucion_id, activo FROM usuarios WHERE proveedor_id = $1',
       [usuarioIdProveedor]
     );
     return rows[0] || null;
@@ -40,12 +40,23 @@ function crearPermisos(db) {
       req.vinculo = Object.freeze({
         usuarioLocalId: fila.id,
         rolRegistrado: fila.rol,
-        referenciaId: fila.referencia_id
+        referenciaId: fila.referencia_id,
+        // SMS-06: cada cuenta trabaja dentro de su institucion.
+        institucionId: fila.institucion_id
       });
       next();
     } catch (error) {
       next(error);
     }
+  }
+
+  // ¿Es este registro de esta institucion? Solo para las tablas que la tienen.
+  const TABLAS_CON_INSTITUCION = new Set(['clases', 'estudiantes']);
+  async function esDeLaInstitucion(tabla, id, institucionId) {
+    if (!TABLAS_CON_INSTITUCION.has(tabla) || !esUuid(id) || !esUuid(institucionId)) return false;
+    const { rows } = await db.consultar(
+      `SELECT 1 FROM ${tabla} WHERE id = $1 AND institucion_id = $2`, [id, institucionId]);
+    return rows.length > 0;
   }
 
   // ¿Imparte esta persona esta clase? Lo responde la propia tabla de clases, no
@@ -80,7 +91,14 @@ function crearPermisos(db) {
       try {
         const claseId = req.params[nombreDelParametro];
         if (!esUuid(claseId)) return res.status(404).json({ error: 'Clase no encontrada.' });
-        if (req.identidad.rol === 'ADMIN') return next();
+        if (req.identidad.rol === 'ADMIN') {
+          // La administracion ve todo, pero solo de su institucion. Lo de otra
+          // institucion responde igual que lo que no existe: no revela nada.
+          if (!await esDeLaInstitucion('clases', claseId, req.vinculo.institucionId)) {
+            return res.status(404).json({ error: 'Clase no encontrada.' });
+          }
+          return next();
+        }
         if (req.identidad.rol !== 'CATEDRATICO') {
           return res.status(403).json({ error: SIN_PERMISO, codigo: 'NO_ES_SUYO' });
         }
@@ -103,7 +121,12 @@ function crearPermisos(db) {
       try {
         const estudianteId = req.params[nombreDelParametro];
         if (!esUuid(estudianteId)) return res.status(404).json({ error: 'Estudiante no encontrado.' });
-        if (req.identidad.rol === 'ADMIN') return next();
+        if (req.identidad.rol === 'ADMIN') {
+          if (!await esDeLaInstitucion('estudiantes', estudianteId, req.vinculo.institucionId)) {
+            return res.status(404).json({ error: 'Estudiante no encontrado.' });
+          }
+          return next();
+        }
         if (req.identidad.rol === 'ESTUDIANTE') {
           if (req.vinculo.referenciaId !== estudianteId) {
             return res.status(403).json({ error: SIN_PERMISO, codigo: 'NO_ES_SUYO' });
@@ -129,6 +152,7 @@ function crearPermisos(db) {
     exigirEstudiantePropio,
     imparteLaClase,
     ensenaAlEstudiante,
+    esDeLaInstitucion,
     esUuid
   };
 }

@@ -40,15 +40,20 @@ function esDuplicado(error) {
   return error && error.code === '23505';
 }
 
-function crearRutasEstructura({ auth, db }) {
+function crearRutasEstructura({ auth, db, permisos }) {
   const rutas = express.Router();
   if (!db) return rutas;
-  const soloAdministracion = auth.exigirRol('ADMIN');
+  // SMS-06: cada consulta y cada escritura queda dentro de la institucion de quien pide.
+  const { resolverVinculo } = permisos;
+  const conSesion = [auth.exigirSesion, resolverVinculo];
+  const soloAdministracion = [auth.exigirRol('ADMIN'), resolverVinculo];
 
   for (const r of RECURSOS) {
-    rutas.get(`/${r.ruta}`, auth.exigirSesion, async (req, res, next) => {
+    rutas.get(`/${r.ruta}`, ...conSesion, async (req, res, next) => {
       try {
-        const { rows } = await db.consultar(`SELECT ${r.lectura} FROM ${r.tabla} ORDER BY ${r.orden}`);
+        const { rows } = await db.consultar(
+          `SELECT ${r.lectura} FROM ${r.tabla} WHERE institucion_id = $1 ORDER BY ${r.orden}`,
+          [req.vinculo.institucionId]);
         res.set('Cache-Control', 'no-store');
         res.json({ [r.ruta]: rows });
       } catch (error) {
@@ -56,16 +61,16 @@ function crearRutasEstructura({ auth, db }) {
       }
     });
 
-    rutas.post(`/${r.ruta}`, soloAdministracion, async (req, res, next) => {
+    rutas.post(`/${r.ruta}`, ...soloAdministracion, async (req, res, next) => {
       const { datos, campos } = validar(r.tipo, req.body);
       if (Object.keys(campos).length) return rechazar(res, campos);
       const nombres = Object.keys(datos).filter((c) => r.columnas.includes(c));
       try {
         const { rows } = await db.consultar(
-          `INSERT INTO ${r.tabla} (${nombres.join(', ')})
-           VALUES (${nombres.map((_, i) => `$${i + 1}`).join(', ')})
+          `INSERT INTO ${r.tabla} (institucion_id, ${nombres.join(', ')})
+           VALUES ($1, ${nombres.map((_, i) => `$${i + 2}`).join(', ')})
            RETURNING ${r.lectura}`,
-          nombres.map((c) => datos[c])
+          [req.vinculo.institucionId, ...nombres.map((c) => datos[c])]
         );
         res.status(201).json({ [r.clave]: rows[0] });
       } catch (error) {
@@ -74,10 +79,12 @@ function crearRutasEstructura({ auth, db }) {
       }
     });
 
-    rutas.put(`/${r.ruta}/:id`, soloAdministracion, async (req, res, next) => {
+    rutas.put(`/${r.ruta}/:id`, ...soloAdministracion, async (req, res, next) => {
       if (!UUID.test(req.params.id)) return res.status(404).json({ error: 'Recurso no encontrado.' });
       try {
-        const existente = await db.consultar(`SELECT ${r.lectura} FROM ${r.tabla} WHERE id = $1`, [req.params.id]);
+        const existente = await db.consultar(
+          `SELECT ${r.lectura} FROM ${r.tabla} WHERE id = $1 AND institucion_id = $2`,
+          [req.params.id, req.vinculo.institucionId]);
         if (!existente.rows.length) return res.status(404).json({ error: 'Recurso no encontrado.' });
         const { datos, campos } = validar(r.tipo, req.body, { parcial: true, actual: existente.rows[0] });
         if (Object.keys(campos).length) return rechazar(res, campos);

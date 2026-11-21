@@ -12,6 +12,7 @@ const { crearRutasAcademicas } = require('./academico/rutas');
 const { crearRutasEstructura } = require('./academico/estructura');
 const { crearRutasExpedientes } = require('./academico/expedientes');
 const { crearRutasDeClases } = require('./academico/clases');
+const { crearRutasInstituciones } = require('./academico/instituciones');
 
 const DIRECTORIO_PUBLICO = path.join(__dirname, '..', 'public');
 
@@ -112,9 +113,10 @@ function crearApp(config, dependencias = {}) {
   // Consultas academicas: cada una tras su guardian de pertenencia (SEC-06).
   const permisos = db ? crearPermisos(db) : null;
   app.use('/api', crearRutasAcademicas({ auth, db, permisos }));
-  app.use('/api', crearRutasEstructura({ auth, db }));
+  app.use('/api', crearRutasEstructura({ auth, db, permisos }));
   app.use('/api', crearRutasExpedientes({ auth, db, permisos }));
   app.use('/api', crearRutasDeClases({ auth, db, permisos }));
+  app.use('/api', crearRutasInstituciones({ auth, db, permisos }));
 
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Recurso no encontrado.' });
