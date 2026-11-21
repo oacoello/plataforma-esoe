@@ -332,3 +332,25 @@ test('campus3d: la pagina no lo carga sin escena, con "reducir movimiento" ni si
   e.contexto.document.createElement = () => ({ getContext: () => null });
   assert.equal(e.contexto.prepararCampus3D(), false, 'sin WebGL se queda el dibujo');
 });
+
+// --- Avisos accesibles (comparado con Khan Academy: 8 regiones aria-live) ---
+
+test('avisos: el contenedor de avisos es una region que el lector de pantalla anuncia', () => {
+  const contenedor = html.match(/<div id="toast-container"[^>]*>/);
+  assert.ok(contenedor, 'falta el contenedor de avisos');
+  assert.match(contenedor[0], /role="status"/);
+  assert.match(contenedor[0], /aria-live="polite"/);
+  assert.match(contenedor[0], /aria-atomic="false"/, 'cada aviso nuevo se lee solo, sin repetir los anteriores');
+});
+
+test('avisos: duran segun el largo del mensaje, con minimo y tope', () => {
+  const fuente = lectura.match(/function duracionAviso[\s\S]*?\n}\n/);
+  assert.ok(fuente, 'falta duracionAviso en lectura.js');
+  const duracionAviso = vm.runInNewContext(`(${fuente[0]})`);
+  const corto = duracionAviso('Clase registrada');
+  const largo = duracionAviso('Acta de asistencia guardada en el servidor con todos los registros de la clase de hoy');
+  assert.equal(corto, 4000, 'un aviso corto dura al menos 4 s (antes eran 3,2 s fijos)');
+  assert.ok(largo > corto, 'un aviso largo dura mas');
+  assert.equal(duracionAviso('palabra '.repeat(200)), 12000, 'con un tope de 12 s');
+  assert.equal(duracionAviso(''), 4000);
+});

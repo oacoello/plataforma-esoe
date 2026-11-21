@@ -31,6 +31,13 @@ function cambiarTamanoTexto(tamano) {
   try { localStorage.setItem(CLAVE_TAMANO_TEXTO, elegido); } catch { /* sin almacenamiento */ }
 }
 
+// Tiempo que un aviso queda en pantalla: alcanza para leerlo con calma, segun su
+// largo (unas 3 palabras por segundo, con un minimo y un tope).
+function duracionAviso(texto) {
+  const palabras = String(texto || '').trim().split(/\s+/).filter(Boolean).length;
+  return Math.min(12000, Math.max(4000, 1500 + palabras * 350));
+}
+
 (function restaurarTamanoTexto() {
   let guardado = null;
   try { guardado = localStorage.getItem(CLAVE_TAMANO_TEXTO); } catch { /* sin almacenamiento */ }

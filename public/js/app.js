@@ -121,9 +121,19 @@ function showToast(mensaje) {
   toast.className = 'toast';
   toast.textContent = mensaje;
   container.appendChild(toast);
-  setTimeout(() => {
-    toast.remove();
-  }, 3200);
+  // El contenedor es una region anunciada (role="status"): el lector de pantalla lo lee.
+  // Dura segun el largo del mensaje y no se va mientras el puntero esta encima.
+  let restante = duracionAviso(mensaje);
+  let desde = Date.now();
+  let reloj = setTimeout(() => toast.remove(), restante);
+  toast.addEventListener('mouseenter', () => {
+    clearTimeout(reloj);
+    restante -= Date.now() - desde;
+  });
+  toast.addEventListener('mouseleave', () => {
+    desde = Date.now();
+    reloj = setTimeout(() => toast.remove(), Math.max(restante, 1500));
+  });
 }
 
 // ==========================================================================
