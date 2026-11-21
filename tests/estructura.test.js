@@ -354,3 +354,26 @@ test('avisos: duran segun el largo del mensaje, con minimo y tope', () => {
   assert.equal(duracionAviso('palabra '.repeat(200)), 12000, 'con un tope de 12 s');
   assert.equal(duracionAviso(''), 4000);
 });
+
+test('presentacion: nombra a las demas instituciones que usan la plataforma', () => {
+  const entes = html.match(/<div class="intro-entes">[\s\S]*?<\/div>/);
+  assert.ok(entes, 'falta el bloque de instituciones en la presentacion');
+  for (const [siglas, nombre] of [['UDH', 'Universidad de Defensa de Honduras'],
+    ['INFOP', 'Instituto Nacional de Formación Profesional'], ['COPECO', 'Comisión Permanente de Contingencias']]) {
+    assert.match(entes[0], new RegExp(`<strong>${siglas}</strong><span>${nombre}</span>`));
+  }
+});
+
+test('diseno: ningun punto ni faro que parpadee sin fin en la interfaz', () => {
+  const css = fs.readFileSync(path.join(PUBLICO, 'css', 'styles.css'), 'utf8');
+  // Una animacion infinita que cambia la opacidad es un indicador parpadeante.
+  const keyframes = [...css.matchAll(/@keyframes\s+([\w-]+)\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g)];
+  const parpadeantes = keyframes.filter(([, , cuerpo]) => /opacity/.test(cuerpo)).map(([, nombre]) => nombre);
+  // Cada animacion de una lista separada por comas se revisa por su cuenta.
+  const tramos = [...css.matchAll(/animation:\s*([^;}]+)/g)].flatMap(([, valor]) => valor.split(','));
+  for (const nombre of parpadeantes) {
+    const infinita = tramos.some((t) => new RegExp(`\\b${nombre}\\b`).test(t) && /infinite/.test(t));
+    assert.ok(!infinita, `${nombre} parpadea sin fin`);
+  }
+  assert.ok(!/reloj-punto|latido/.test(css + html), 'el punto del reloj no vuelve');
+});
