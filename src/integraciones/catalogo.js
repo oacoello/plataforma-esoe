@@ -24,6 +24,15 @@ const PLATAFORMAS_CONOCIDAS = Object.freeze([
     tipo: 'MOODLE',
     urlBase: 'https://aula.udh.edu.hn',
     descripcion: 'Campus virtual de la Universidad de Defensa de Honduras.'
+  }),
+  // Verificada el 21-11-2026: es Moodle, pero con los servicios web apagados. Hasta que su
+  // administracion los active, registrarla responde con ese motivo y no se conecta.
+  Object.freeze({
+    clave: 'copeco-cenicac',
+    nombre: 'COPECO — CENICAC',
+    tipo: 'MOODLE',
+    urlBase: 'https://cenicac.copeco.gob.hn',
+    descripcion: 'Centro de capacitación de COPECO en gestión del riesgo. Requiere que su administración active los servicios web móviles.'
   })
 ]);
 
