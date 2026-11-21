@@ -158,6 +158,27 @@
   --sidebar-width: 256px;
   --topbar-height: 64px;
   --radius: 4px;
+  /* Vidrio de los controles y avisos (estilo iOS): claro sobre el acceso, indigo
+     dentro de la plataforma y en la noche. */
+  --vidrio-claro: rgba(255, 255, 255, 0.58);
+  --vidrio-claro-borde: rgba(255, 255, 255, 0.85);
+  --vidrio-claro-tenue: rgba(15, 42, 51, 0.06);
+  --vidrio-oscuro: rgba(22, 24, 56, 0.62);
+  --vidrio-oscuro-borde: rgba(255, 255, 255, 0.14);
+  --vidrio-oscuro-tenue: rgba(255, 255, 255, 0.08);
+  --vidrio-pulgar-claro: #FFFFFF;
+  --vidrio-pulgar-oscuro: rgba(255, 255, 255, 0.92);
+  --vidrio-sombra-clara: 0 12px 32px rgba(10, 42, 53, 0.16), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  --vidrio-sombra-oscura: 0 14px 36px rgba(0, 0, 0, 0.38), 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  --pulgar-sombra: 0 3px 8px rgba(10, 20, 40, 0.18), 0 1px 1px rgba(10, 20, 40, 0.10);
+  --vidrio: var(--vidrio-claro);
+  --vidrio-borde: var(--vidrio-claro-borde);
+  --vidrio-tenue: var(--vidrio-claro-tenue);
+  --vidrio-pulgar: var(--vidrio-pulgar-claro);
+  --vidrio-sombra: var(--vidrio-sombra-clara);
+  --vidrio-texto-pulgar: var(--marca-8);
+  /* Resorte de iOS: llega, se pasa un poco y se asienta. */
+  --curva-resorte: cubic-bezier(0.34, 1.56, 0.64, 1);
   --font-sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'DM Serif Display', Georgia, serif;
   --radio-tarjeta: 10px;
@@ -346,31 +367,10 @@ svg { flex-shrink: 0; }
 .login-footer-meta { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--linea); }
 
 /* ---------- Ambiente: barra flotante, reloj ---------- */
-.barra-ambiente {
-  position: fixed; left: calc(50% + max(34vw, calc(var(--columna-acceso) - 40px)) / 2); bottom: 28px; translate: -50% 0; z-index: 5;
-  display: flex; align-items: center; gap: 2px; padding: 6px;
-  background: var(--papel);
-  border: 1px solid var(--linea);
-  border-radius: var(--radio-tarjeta);
-  box-shadow: var(--sombra-flotante);
-}
-.ambiente-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  min-height: 36px; padding: 0 12px;
-  background: transparent; border: none; border-radius: 6px;
-  font-size: var(--fs-sm); color: var(--titulo); cursor: pointer;
-}
-.ambiente-btn:hover { background: var(--superficie); }
-.ambiente-btn[aria-pressed="true"] { background: var(--superficie); box-shadow: inset 0 -2px 0 var(--acento-titulo); }
-.ambiente-btn:focus-visible { outline: 2px solid var(--enlace); outline-offset: 2px; }
-.ambiente-ico { font-size: var(--fs-md); line-height: 1; }
-.barra-ambiente .control-texto { margin-left: 6px; border: none; border-left: 1px solid var(--linea); border-radius: 0; padding-left: 6px; }
-.barra-ambiente .control-texto button { border-right: none; border-radius: 6px; }
 
 .reloj { display: inline-flex; align-items: center; gap: 8px; color: var(--titulo); }
 .topbar-right { gap: 6px; }
 .topbar-right .reloj { margin-right: 6px; }
-.topbar-right .ambiente-btn[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--decoracion-viva); }
 
 /* ---------- Acceso en pantallas medianas y telefonos ---------- */
 @media (max-width: 960px) {
@@ -690,8 +690,6 @@ select.form-control { width: auto; min-width: 180px; max-width: 100%; }
 .modal-close { background: transparent; border: none; color: var(--texto); cursor: pointer; padding: 4px; }
 .modal-body { padding: 24px; overflow-y: auto; }
 
-.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; }
-.toast { background: var(--estructura); color: var(--sobre-estructura); border-left: 4px solid var(--decoracion-viva); padding: 12px 18px; border-radius: var(--radius); font-size: var(--fs-sm); font-weight: 500; }
 
 .sidebar-overlay { display: none; position: fixed; inset: 0; background: var(--velo-suave); z-index: 90; }
 
@@ -754,15 +752,6 @@ select.form-control { width: auto; min-width: 180px; max-width: 100%; }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* Tamano del texto: tres botones de alternancia. */
-.control-texto { display: inline-flex; border: 1px solid var(--linea); border-radius: var(--radius); overflow: hidden; }
-.control-texto button {
-  border: none; border-right: 1px solid var(--linea); background: transparent; color: var(--texto);
-  min-width: 40px; min-height: 36px; padding: 0 8px; font-size: var(--fs-sm); font-weight: 700; cursor: pointer;
-}
-.control-texto button:last-child { border-right: none; }
-.control-texto button[aria-pressed="true"] { background: var(--accion); color: var(--sobre-accion); }
-.control-texto button:focus-visible { outline: 2px solid var(--estructura); outline-offset: -2px; }
 .login-form-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .topbar-right .control-texto { margin-right: 12px; }
 
@@ -868,6 +857,11 @@ select.form-control { width: auto; min-width: 180px; max-width: 100%; }
 /* Solo cambian valores de las variables; ninguna regla cambia. El plano se
    oscurece con un filtro y las nubes casi desaparecen. */
 html[data-noche] {
+  --vidrio: var(--vidrio-oscuro);
+  --vidrio-borde: var(--vidrio-oscuro-borde);
+  --vidrio-tenue: var(--vidrio-oscuro-tenue);
+  --vidrio-pulgar: var(--vidrio-pulgar-oscuro);
+  --vidrio-sombra: var(--vidrio-sombra-oscura);
   --papel: var(--noche-papel);
   --superficie: var(--noche-superficie);
   --linea: var(--noche-linea);
@@ -910,7 +904,7 @@ html[data-noche] .btn.btn-entrar { border-color: var(--decoracion-viva); }
 }
 .intro[hidden] { display: none; }
 .intro-saliendo { opacity: 0; visibility: hidden; }
-.intro-video { width: min(60vmin, 560px, calc(100dvh - 300px)); min-width: 120px; height: auto; aspect-ratio: 1 / 1; }
+.intro-video { width: min(56vmin, 520px, calc(100dvh - 400px)); min-width: 120px; height: auto; aspect-ratio: 1 / 1; }
 .intro-rotulo { color: var(--sobre-estructura-tenue); text-align: center; padding: 0 20px; }
 /* Las demas instituciones que usan la plataforma: entran despues del escudo. */
 .intro-entes { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 20px;
@@ -919,7 +913,32 @@ html[data-noche] .btn.btn-entrar { border-color: var(--decoracion-viva); }
 .intro-entes ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 32px; }
 .intro-entes li { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; max-width: 220px; }
 .intro-entes strong { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-lg); line-height: 1.1; color: var(--sobre-estructura); }
-.intro-entes span { font-size: var(--fs-meta); line-height: 1.3; color: var(--sobre-estructura-tenue); }
+.intro-entes li > span:last-child { font-size: var(--fs-meta); line-height: 1.3; color: var(--sobre-estructura-tenue); }
+/* Cada escudo se muestra tal cual lo publica su institucion, sobre un medallon
+   claro para respetar sus colores. Entran uno tras otro girando como una moneda
+   que se asienta; una sola vez, sin repetir. */
+.ente-medallon {
+  display: grid; place-items: center; width: 84px; height: 84px; margin-bottom: 8px;
+  border-radius: 50%; background: var(--papel);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--estructura) 60%, transparent), 0 0 0 1px var(--trazo-claro);
+  animation: ente-llega 0.9s var(--curva-resorte) both;
+}
+.intro-entes li:nth-child(1) .ente-medallon { animation-delay: 1.7s; }
+.intro-entes li:nth-child(2) .ente-medallon { animation-delay: 1.95s; }
+.intro-entes li:nth-child(3) .ente-medallon { animation-delay: 2.2s; }
+.ente-escudo { width: 70px; height: 70px; object-fit: contain; }
+@keyframes ente-llega {
+  from { transform: perspective(600px) translateY(18px) rotateY(-90deg) scale(0.8); }
+  to { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ente-medallon { animation: none; } }
+/* En el telefono las tres instituciones van en una fila compacta. */
+@media (max-width: 600px) {
+  .intro-entes ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
+  .ente-medallon { width: 60px; height: 60px; margin-bottom: 4px; }
+  .ente-escudo { width: 48px; height: 48px; }
+  .intro-entes strong { font-size: var(--fs-md); }
+}
 .intro-progreso { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--trazo-claro); }
 .intro-progreso span { display: block; width: 0; height: 100%; background: var(--decoracion-viva); transition: width 0.25s linear; }
 .intro-saltar {
@@ -965,7 +984,6 @@ html[data-noche] .btn.btn-entrar { border-color: var(--decoracion-viva); }
 .role-card-btn:hover { transform: translateY(-2px); box-shadow: var(--sombra-suave); }
 .btn-entrar-flecha { transition: transform 0.3s var(--curva-entrada); }
 .btn.btn-entrar:hover .btn-entrar-flecha { transform: translate(3px, -3px); }
-.ambiente-btn { transition: background 0.2s ease, box-shadow 0.2s ease; }
 
 /* El cambio a noche se funde en lugar de saltar. */
 body, .login-screen, .sidebar, .topbar, .app-shell, .barra-ambiente, .punto, .role-card-btn, .form-control {
@@ -1040,3 +1058,96 @@ html[data-noche] { --punto-fondo: var(--noche-punto-fondo); }
   .bienvenida-escudo { display: none; }
 }
 
+
+/* ---------- Controles de ambiente y avisos: vidrio estilo iOS ---------- */
+/* La barra es una capsula de vidrio esmerilado; cada boton es una pildora que
+   se llena con el naranja de la marca al activarse y se hunde al tocarla. */
+.barra-ambiente {
+  position: fixed; left: calc(50% + max(34vw, calc(var(--columna-acceso) - 40px)) / 2); bottom: 28px; translate: -50% 0; z-index: 5;
+  display: flex; align-items: center; gap: 6px; padding: 6px;
+  background: var(--vidrio);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 999px;
+  box-shadow: var(--vidrio-sombra);
+}
+.ambiente-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 40px; min-width: 40px; padding: 0 14px;
+  background: var(--vidrio-tenue); border: none; border-radius: 999px;
+  font-size: var(--fs-sm); font-weight: 500; color: var(--titulo); cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.3s ease, transform 0.35s var(--curva-resorte);
+}
+.ambiente-btn:hover { background: var(--vidrio-borde); }
+.ambiente-btn:active { transform: scale(0.93); }
+.ambiente-btn[aria-pressed="true"] {
+  background: var(--accion); color: var(--sobre-accion);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accion) 45%, transparent);
+}
+.ambiente-btn:focus-visible { outline: 2px solid var(--enlace); outline-offset: 3px; }
+.ambiente-ico { font-size: var(--fs-md); line-height: 1; }
+.topbar-right .ambiente-btn { background: var(--vidrio-tenue); }
+.topbar-right .ambiente-btn:hover { background: var(--vidrio-borde); }
+.topbar-right .ambiente-btn[aria-pressed="true"] { background: var(--accion); }
+
+/* Tamano del texto: control segmentado de iOS. Una pastilla se desliza bajo la
+   opcion elegida; su lugar sale del tamano activo en <html data-texto>. */
+.control-texto {
+  position: relative; isolation: isolate;
+  display: inline-grid; grid-template-columns: repeat(3, 1fr);
+  padding: 3px; border-radius: 999px;
+  background: var(--vidrio-tenue);
+}
+.control-texto::before {
+  content: ""; position: absolute; z-index: -1;
+  top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3);
+  border-radius: 999px; background: var(--vidrio-pulgar); box-shadow: var(--pulgar-sombra);
+  transition: translate 0.45s var(--curva-resorte);
+}
+html[data-texto="grande"] .control-texto::before { translate: 100% 0; }
+html[data-texto="muy-grande"] .control-texto::before { translate: 200% 0; }
+.control-texto button {
+  border: none; background: transparent; color: var(--titulo);
+  min-width: 40px; min-height: 34px; padding: 0 10px; border-radius: 999px;
+  font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
+  transition: color 0.25s ease, transform 0.35s var(--curva-resorte);
+}
+.control-texto button:active { transform: scale(0.92); }
+.control-texto button[aria-pressed="true"] { color: var(--vidrio-texto-pulgar); }
+.control-texto button:focus-visible { outline: 2px solid var(--enlace); outline-offset: 1px; }
+.barra-ambiente .control-texto { margin-left: 4px; }
+.topbar-right .control-texto { margin-right: 12px; }
+
+/* Avisos: banner de notificacion de iOS. Vidrio arriba al centro, con el escudo,
+   el remitente, la hora y el mensaje; baja con resorte y sale hacia arriba. */
+.toast-container {
+  position: fixed; z-index: 300; left: 50%; translate: -50% 0;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  width: min(420px, calc(100vw - 32px));
+  display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 12px;
+  padding: 12px 16px; border-radius: 22px;
+  background: var(--vidrio);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--vidrio-borde);
+  box-shadow: var(--vidrio-sombra);
+  color: var(--titulo);
+  animation: aviso-baja 0.55s var(--curva-resorte) both;
+}
+.toast.aviso-sale { animation: aviso-sube 0.28s ease-in both; }
+.aviso-icono { grid-row: span 2; width: 36px; height: 36px; border-radius: 9px; object-fit: contain; background: var(--vidrio-tenue); padding: 4px; }
+.aviso-remitente { font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--piedra); }
+.aviso-hora { font-size: var(--fs-meta); color: var(--piedra); justify-self: end; }
+.aviso-mensaje { grid-column: 2 / 4; font-size: var(--fs-sm); font-weight: 500; line-height: 1.35; color: var(--titulo); }
+@keyframes aviso-baja { from { transform: translateY(-140%) scale(0.96); } to { transform: none; } }
+@keyframes aviso-sube { to { transform: translateY(-140%) scale(0.96); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast, .toast.aviso-sale { animation: none; }
+  .control-texto::before, .ambiente-btn, .control-texto button { transition: none; }
+}

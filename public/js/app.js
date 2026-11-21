@@ -117,22 +117,47 @@ function calcularPorcentajeAsistencia(claseId, estudianteId) {
 function showToast(mensaje) {
   const container = document.getElementById('toast-container');
   if (!container) return;
+  // Banner de notificacion: escudo, remitente y hora (decorativos para el lector
+  // de pantalla) y el mensaje, que es lo unico que se anuncia.
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.textContent = mensaje;
+  const icono = document.createElement('img');
+  icono.className = 'aviso-icono';
+  icono.src = 'img/escudo-esoe.svg';
+  icono.alt = '';
+  const remitente = document.createElement('span');
+  remitente.className = 'aviso-remitente';
+  remitente.textContent = 'Plataforma ESOE';
+  remitente.setAttribute('aria-hidden', 'true');
+  const hora = document.createElement('span');
+  hora.className = 'aviso-hora';
+  hora.textContent = 'ahora';
+  hora.setAttribute('aria-hidden', 'true');
+  const texto = document.createElement('span');
+  texto.className = 'aviso-mensaje';
+  texto.textContent = mensaje;
+  toast.append(icono, remitente, hora, texto);
   container.appendChild(toast);
+
+  // Sale hacia arriba; con "reducir movimiento" se va sin animar.
+  const retirar = () => {
+    const sinMovimiento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (sinMovimiento) { toast.remove(); return; }
+    toast.classList.add('aviso-sale');
+    setTimeout(() => toast.remove(), 300);
+  };
   // El contenedor es una region anunciada (role="status"): el lector de pantalla lo lee.
   // Dura segun el largo del mensaje y no se va mientras el puntero esta encima.
   let restante = duracionAviso(mensaje);
   let desde = Date.now();
-  let reloj = setTimeout(() => toast.remove(), restante);
+  let reloj = setTimeout(retirar, restante);
   toast.addEventListener('mouseenter', () => {
     clearTimeout(reloj);
     restante -= Date.now() - desde;
   });
   toast.addEventListener('mouseleave', () => {
     desde = Date.now();
-    reloj = setTimeout(() => toast.remove(), Math.max(restante, 1500));
+    reloj = setTimeout(retirar, Math.max(restante, 1500));
   });
 }
 
