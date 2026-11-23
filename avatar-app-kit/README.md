@@ -11,7 +11,7 @@ npm test
 npm run verificar
 ```
 
-`preparar` muestra el pedido sin llamar a la API ni consumir saldo. El modelo y los parámetros de Seedance reproducen la configuración de la captura proporcionada; su disponibilidad todavía requiere validación con una cuenta autorizada.
+`preparar` muestra el pedido sin llamar a la API ni consumir saldo. La disponibilidad del modelo y los parámetros de Seedance requiere validación con una cuenta autorizada.
 
 Para solicitar un video, configure `HF_CREDENTIALS` mediante las variables seguras del entorno o en `.env.local`, excluido de Git, y ejecute `npm run generar`. El comando puede consumir saldo de la API. No reintenta pedidos automáticamente. Un timeout local no cancela el pedido remoto: consulte su estado en Higgsfield antes de repetirlo. Los enlaces de resultados se guardan en `salidas/`, excluido de Git.
 
