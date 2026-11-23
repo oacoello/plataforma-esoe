@@ -458,7 +458,6 @@ export function iniciarCampus3D(contenedor, { raiz = document.documentElement, p
     if (!ancho || !alto) return;
     renderer.setSize(ancho, alto, false);
     camara.aspect = ancho / alto;
-    camara.far = Math.max(400, 180 / camara.aspect + 150);
     camara.updateProjectionMatrix();
   };
   new ResizeObserver(ajustar).observe(contenedor);
@@ -497,7 +496,7 @@ export function iniciarCampus3D(contenedor, { raiz = document.documentElement, p
     puntero.ay += (puntero.y - puntero.ay) * 0.04;
     const azimut = MathUtils.degToRad(45 + Math.sin(t * 0.08) * 6 + puntero.ax * 10 - (1 - llegada) * 25);
     const elevacion = MathUtils.degToRad(34 + Math.sin(t * 0.11) * 1.5 - puntero.ay * 5 + (1 - llegada) * 18);
-    const distancia = Math.max(80, 115 / camara.aspect) * (1 + (1 - llegada) * 0.5);
+    const distancia = (camara.aspect < 1 ? 80 : 74) * (1 + (1 - llegada) * 0.5);
     camara.position.set(
       objetivo.x + distancia * Math.cos(elevacion) * Math.sin(azimut),
       objetivo.y + distancia * Math.sin(elevacion),

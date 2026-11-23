@@ -70,7 +70,7 @@ test('ambiente: los controles se ajustan a pantalla y texto sin quedar cubiertos
   }
 });
 
-test('identidad visual: cabecera, campus y leyenda ocupan espacios separados', async () => {
+test('identidad visual: las marcas permanecen sobre el campus sin invadir la cabecera', async () => {
   const servidor = await levantar();
   let navegador;
   try {
@@ -86,23 +86,16 @@ test('identidad visual: cabecera, campus y leyenda ocupan espacios separados', a
         await pagina.evaluate(() => globalThis.scrollTo(0, 0));
         const cabecera = await pagina.locator('.login-brand-panel').boundingBox();
         const campus = await pagina.locator('.escena').boundingBox();
-        const plano = await pagina.locator('.escena-plano').boundingBox();
-        const leyenda = await pagina.locator('.escena-puntos').boundingBox();
         assert.ok(noSeCruzan(cabecera, campus), `${width}: cabecera y campus`);
-        assert.ok(noSeCruzan(plano, leyenda), `${width}: imagen y leyenda`);
         assert.ok(noSeCruzan(await pagina.locator('.brand-crest').boundingBox(), await pagina.locator('.login-brand-panel .reloj').boundingBox()), `${width}: marca y reloj`);
         assert.equal(await pagina.locator('.brand-title-group .rotulo').isVisible(), true);
-        const puntos = await pagina.locator('.escena-puntos .punto').all();
-        assert.equal(puntos.length, 8);
-        const cajas = [];
-        for (const punto of puntos) {
-          assert.equal(await punto.locator('.punto-nombre').isVisible(), true);
-          assert.equal(await punto.evaluate((elemento) => elemento.scrollWidth <= elemento.clientWidth + 1), true);
-          const caja = await punto.boundingBox();
-          assert.ok(caja.x >= leyenda.x && caja.x + caja.width <= leyenda.x + leyenda.width + 1);
-          for (const anterior of cajas) assert.ok(noSeCruzan(caja, anterior));
-          cajas.push(caja);
+        const puntos = pagina.locator('.escena-plano > .escena-puntos > .punto');
+        assert.equal(await puntos.count(), 8);
+        for (const punto of await puntos.all()) {
+          assert.equal(await punto.evaluate((elemento) => globalThis.getComputedStyle(elemento).position), 'absolute');
+          assert.equal(await punto.locator('.punto-n').isVisible(), true);
         }
+        assert.equal(await pagina.locator('.escena > .escena-puntos').count(), 0);
       }
       await pagina.close();
     }
