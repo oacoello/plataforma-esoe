@@ -73,11 +73,18 @@ paleta de la interfaz no lo recolorea. Si se dispone del archivo original, basta
 
 ## 3. Puesta en Marcha
 
-Requisitos: Node 22 o superior. Para las pruebas del esquema, PostgreSQL 16.
+Requisitos: Node 22.9 o superior. Para las pruebas del esquema, PostgreSQL 16.
 
 ```bash
 npm ci
 cp .env.example .env
+```
+
+Complete la configuración de Clerk y PostgreSQL en `.env` o en las variables seguras del entorno.
+Después aplique el esquema y arranque:
+
+```bash
+npm run migrar
 npm run dev
 ```
 
@@ -86,7 +93,7 @@ el [manual de procedimientos](docs/manual.md#2-variables-de-entorno).
 
 | Configuración | Comportamiento |
 | --- | --- |
-| Sin llaves de Clerk | **Modo demostración.** Los datos se guardan en el navegador y el acceso no se valida. |
+| Sin llaves de Clerk | **Acceso cerrado.** No se puede entrar ni seleccionar un rol localmente. |
 | Con llaves de Clerk | Inicio de sesión real, rol asignado por el servidor, datos en PostgreSQL y conexión con Moodle e INFOP. |
 
 Todo cambio pasa por la compuerta de calidad antes de integrarse:
@@ -94,6 +101,14 @@ Todo cambio pasa por la compuerta de calidad antes de integrarse:
 ```bash
 npm run verificar
 ```
+
+Las presentaciones a clientes usan una cuenta real de Clerk con datos de una institución de
+demostración. No existe un formulario alternativo para omitir la autenticación. El nombre de la
+bienvenida procede de la sesión verificada y el recorrido guiado explica las herramientas del perfil.
+
+El despliegue incluye balanceador, dos instancias web, cuotas compartidas en PostgreSQL y respaldos
+programados. La aplicación usa un rol de base de datos sin privilegios de administración.
+Véase [operación y recuperación](docs/operacion.md) para configurar y verificar el despliegue real.
 
 ---
 

@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
+const { esUuid } = require('../permisos');
 
 const VIGENCIA_SESION_S = 20 * 60;
 const INSTITUCIONES = Object.freeze({ esoe: 'ESOE', udh: 'UDH', infop: 'INFOP', copeco: 'COPECO' });
@@ -41,7 +42,7 @@ function crearFirmante(token) {
   };
 }
 
-function crearRutasDeVoz({ config, db }) {
+function crearRutasDeVoz({ config, db, crearAlmacenLimites = () => undefined }) {
   const rutas = express.Router();
   const token = config.voz.token;
 
@@ -63,6 +64,7 @@ function crearRutasDeVoz({ config, db }) {
   });
 
   const limiteVerificacion = rateLimit({
+    store: crearAlmacenLimites('voz'),
     windowMs: config.limitePeticiones.ventanaMs,
     limit: config.voz.limiteVerificacion,
     standardHeaders: 'draft-7',
@@ -127,13 +129,26 @@ function crearRutasDeVoz({ config, db }) {
     }
   });
 
-  const exigirSesionDeVoz = (tipos) => (req, res, next) => {
+  const exigirSesionDeVoz = (tipos) => async (req, res, next) => {
     const sesion = firmante.leer(req.body && req.body.sesion);
-    if (!sesion || !tipos.includes(sesion.tipo)) {
+    if (!sesion || !tipos.includes(sesion.tipo) || !esUuid(sesion.id) || !esUuid(sesion.inst)) {
       return res.status(403).json({ error: 'Verifique primero la identidad de quien llama.' });
     }
-    req.sesionDeVoz = sesion;
-    next();
+    try {
+      const consulta = sesion.tipo === 'ESTUDIANTE'
+        ? `SELECT 1 FROM estudiantes e JOIN instituciones i ON i.id = e.institucion_id
+            WHERE e.id = $1 AND e.institucion_id = $2 AND e.estado = 'ACTIVO' AND i.activa`
+        : `SELECT 1 FROM catedraticos c JOIN instituciones i ON i.id = c.institucion_id
+            WHERE c.id = $1 AND c.institucion_id = $2 AND c.activo AND i.activa`;
+      const { rows } = await db.consultar(consulta, [sesion.id, sesion.inst]);
+      if (rows.length !== 1) {
+        return res.status(403).json({ error: 'Verifique primero la identidad de quien llama.' });
+      }
+      req.sesionDeVoz = sesion;
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
 
   const clasePedida = (req) => texto(req.body && req.body.codigoClase, 30).replace(/\s+/g, '').toUpperCase();

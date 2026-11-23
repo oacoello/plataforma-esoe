@@ -129,7 +129,7 @@ test('permisos: un estudiante que pide el boletin de otro recibe 403', sinBase, 
 });
 
 test('permisos: sin sesion, toda ruta de /api salvo salud y configuracion responde 401', sinBase, async () => {
-  const publicas = ['/api/health', '/api/config'];
+  const publicas = ['/api/health', '/api/config', '/api/live', '/api/ready'];
   for (const ruta of publicas) {
     assert.equal((await servidor.pedir(ruta)).status, 200, `${ruta} es publica`);
   }
@@ -199,10 +199,10 @@ test('permisos: un identificador que no es UUID no llega a la base', sinBase, as
   }
 
   const inexistente = '11111111-1111-4111-8111-111111111111';
-  assert.equal((await servidor.pedir(`/api/clases/${inexistente}/asistencia`, { headers: como('CATEDRATICO', CUENTA.catedraticoUno) })).status, 403);
+  assert.equal((await servidor.pedir(`/api/clases/${inexistente}/asistencia`, { headers: como('CATEDRATICO', CUENTA.catedraticoUno) })).status, 404);
 });
 
-const PUBLICAS = new Set(['/api/health', '/api/config']);
+const PUBLICAS = new Set(['/api/health', '/api/config', '/api/live', '/api/ready']);
 
 function rutasSinGuardian(app) {
   const sinGuardian = [];

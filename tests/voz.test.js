@@ -113,6 +113,13 @@ test('voz: sin sesion verificada no hay notas, asistencia ni horario', sinBase, 
   }
   const ajena = crearFirmante('otra-llave-de-servicio-con-32-caracteres').emitir({ tipo: 'ESTUDIANTE', id: d.esoe.estudiante.id, inst: 'x' });
   assert.equal((await voz('/notas', { sesion: ajena })).status, 403);
+  for (const datos of [
+    { tipo: 'ESTUDIANTE', id: 'no-es-uuid', inst: d.esoe.estudiante.id },
+    { tipo: 'ESTUDIANTE', id: d.esoe.estudiante.id, inst: 'no-es-uuid' }
+  ]) {
+    const sesion = crearFirmante(TOKEN).emitir(datos);
+    assert.equal((await voz('/notas', { sesion })).status, 403);
+  }
 });
 
 test('voz: el estudiante verificado oye sus notas', sinBase, async () => {
@@ -147,4 +154,38 @@ test('voz: el catedratico verificado oye el horario de sus clases, pero no notas
   const { cuerpo } = await voz('/horario', { sesion: v.sesion });
   assert.deepEqual(cuerpo.clases, [{ materia: 'Tactica', codigo_clase: 'TAC-101-A', horario: 'Lunes y miércoles 08:00', aula: 'Aula 3' }]);
   assert.equal((await voz('/notas', { sesion: v.sesion })).status, 403, 'la sesion de catedratico no lee notas de estudiante');
+});
+
+test('voz: desactivar un estudiante revoca las consultas de una sesion ya emitida', sinBase, async () => {
+  const { cuerpo: verificada } = await verificarCarla();
+  await base.db.consultar("UPDATE estudiantes SET estado = 'BAJA' WHERE id = $1", [d.esoe.estudiante.id]);
+  try {
+    for (const ruta of ['/notas', '/asistencia', '/horario']) {
+      assert.equal((await voz(ruta, { sesion: verificada.sesion })).status, 403, ruta);
+    }
+  } finally {
+    await base.db.consultar("UPDATE estudiantes SET estado = 'ACTIVO' WHERE id = $1", [d.esoe.estudiante.id]);
+  }
+});
+
+test('voz: desactivar un catedratico revoca su sesion de horario', sinBase, async () => {
+  const { cuerpo: verificada } = await voz('/verificar-catedratico', { institucion: 'esoe', dni: '0801198000001' });
+  await base.db.consultar('UPDATE catedraticos SET activo = false WHERE id = $1', [d.esoe.catedratico.id]);
+  try {
+    assert.equal((await voz('/horario', { sesion: verificada.sesion })).status, 403);
+  } finally {
+    await base.db.consultar('UPDATE catedraticos SET activo = true WHERE id = $1', [d.esoe.catedratico.id]);
+  }
+});
+
+test('voz: desactivar una institucion revoca sesiones ya verificadas', sinBase, async () => {
+  const { cuerpo: verificada } = await verificarCarla();
+  await base.db.consultar("UPDATE instituciones SET activa = false WHERE codigo = 'ESOE'");
+  try {
+    for (const ruta of ['/notas', '/asistencia', '/horario']) {
+      assert.equal((await voz(ruta, { sesion: verificada.sesion })).status, 403, ruta);
+    }
+  } finally {
+    await base.db.consultar("UPDATE instituciones SET activa = true WHERE codigo = 'ESOE'");
+  }
 });

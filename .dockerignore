@@ -7,7 +7,10 @@ coverage
 tests
 scripts
 !scripts/migrar.js
+!scripts/preparar-base.js
 interfaz
+avatar-app-kit
+respaldos
 docs
 *.md
 docker-compose.yml

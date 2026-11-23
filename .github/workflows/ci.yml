@@ -40,6 +40,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm ci --prefix avatar-app-kit
+      - run: npm run verificar --prefix avatar-app-kit
       - run: npx playwright install --with-deps chromium
       - run: npm run verificar
 

@@ -4,7 +4,9 @@ const path = require('node:path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const { rateLimit } = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const { getAuth } = require('@clerk/express');
+const { AlmacenLimitesPostgres } = require('./limites');
 const { crearAutenticacion } = require('./auth');
 const { crearPermisos } = require('./permisos');
 const { crearRutasDeIntegraciones } = require('./integraciones/rutas');
@@ -44,6 +46,9 @@ function crearApp(config, dependencias = {}) {
   const app = express();
   const auth = dependencias.auth || crearAutenticacion(config);
   const db = dependencias.db || null;
+  const crearAlmacenLimites = (prefijo) => config.limitePeticiones.almacen === 'postgres'
+    ? new AlmacenLimitesPostgres(db, prefijo) : undefined;
+  app.locals.aceptaTrafico = true;
 
   app.disable('x-powered-by');
   if (config.proxiesDeConfianza > 0) app.set('trust proxy', config.proxiesDeConfianza);
@@ -58,17 +63,43 @@ function crearApp(config, dependencias = {}) {
     app.use('/api', cors({ origin: config.origenesPermitidos, credentials: true }));
   }
 
-  app.use('/api', rateLimit({
+  const usuarioParaLimite = Symbol('usuarioParaLimite');
+  const limitarApi = rateLimit({
+    store: crearAlmacenLimites('api'),
     windowMs: config.limitePeticiones.ventanaMs,
-    limit: config.limitePeticiones.maximo,
+    limit: (req) => req[usuarioParaLimite]
+      ? config.limitePeticiones.maximo : config.limitePeticiones.maximoPublico,
+    keyGenerator: (req) => req[usuarioParaLimite]
+      ? `usuario:${req[usuarioParaLimite]}` : `ip:${ipKeyGenerator(req.ip)}`,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Demasiadas peticiones. Intente de nuevo mas tarde.' }
-  }));
+  });
 
-  app.use(express.json({ limit: '100kb' }));
+  app.get('/api/live', (req, res) => {
+    res.set('Cache-Control', 'no-store').json({ status: 'OK' });
+  });
 
-  app.get('/api/health', async (req, res) => {
+  app.get('/api/ready', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!db || !app.locals.aceptaTrafico) return res.status(503).json({ status: 'NO_DISPONIBLE' });
+    let reloj;
+    try {
+      const comprobar = async () => {
+        const { rows } = await db.consultar("SELECT NOT pg_is_in_recovery() AND current_setting('transaction_read_only')='off' AS disponible");
+        if (rows[0].disponible !== true) throw new Error('Base no disponible para escritura.');
+        if (config.limitePeticiones.almacen === 'postgres') await db.consultar('SELECT 1 FROM limites_peticion LIMIT 0');
+      };
+      await Promise.race([comprobar(), new Promise((_, rechazar) => {
+        reloj = setTimeout(() => rechazar(new Error('Tiempo de comprobacion agotado.')), 3000);
+      })]);
+      res.json({ status: 'OK' });
+    } catch {
+      res.status(503).json({ status: 'NO_DISPONIBLE' });
+    } finally { clearTimeout(reloj); }
+  });
+
+  app.get('/api/health', limitarApi, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const cuerpo = { status: 'OK', service: 'ESOE-SMS-Platform', timestamp: new Date().toISOString() };
     if (!db) return res.json({ ...cuerpo, baseDeDatos: 'SIN_CONFIGURAR' });
@@ -86,7 +117,7 @@ function crearApp(config, dependencias = {}) {
     }
   });
 
-  app.get('/api/config', (req, res) => {
+  app.get('/api/config', limitarApi, (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({
       autenticacion: auth.habilitada
@@ -96,18 +127,29 @@ function crearApp(config, dependencias = {}) {
     });
   });
 
-  app.use('/api/voz', crearRutasDeVoz({ config, db }));
+  app.use('/api/voz', limitarApi, express.json({ limit: '100kb' }), crearRutasDeVoz({ config, db, crearAlmacenLimites }));
 
-  app.use('/api', auth.middleware);
+  app.use('/api', (req, res, next) => {
+    auth.middleware(req, res, (error) => {
+      if (!error && config.clerk.habilitado && /^Bearer \S+$/.test(req.get('authorization') || '')) {
+        try {
+          const sesion = getAuth(req);
+          if (sesion.isAuthenticated && sesion.userId) req[usuarioParaLimite] = sesion.userId;
+        } catch {}
+      }
+      limitarApi(req, res, (errorDeLimite) => next(error || errorDeLimite));
+    });
+  });
+  app.use(express.json({ limit: '100kb' }));
 
   app.get('/api/sesion', auth.exigirSesion, (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ usuarioId: req.identidad.usuarioId, rol: req.identidad.rol });
   });
 
-  app.use('/api/integraciones', crearRutasDeIntegraciones({ config, auth, db }));
-
   const permisos = db ? crearPermisos(db) : null;
+  app.use('/api/integraciones', crearRutasDeIntegraciones({ config, auth, db, permisos, crearAlmacenLimites }));
+
   app.use('/api', crearRutasAcademicas({ auth, db, permisos }));
   app.use('/api', crearRutasEstructura({ auth, db, permisos }));
   app.use('/api', crearRutasExpedientes({ auth, db, permisos }));
@@ -129,9 +171,10 @@ function crearApp(config, dependencias = {}) {
   });
 
   app.use((err, req, res, _next) => {
-    const estado = err.status && err.status >= 400 && err.status < 500 ? err.status : 500;
+    const estado = err.status === 503 ? 503 : err.status && err.status >= 400 && err.status < 500 ? err.status : 500;
     if (estado === 500) console.error('[ESOE-SMS] Error no controlado:', err.message);
-    const cuerpo = { error: estado === 500 ? 'Error interno del servidor.' : 'Solicitud invalida.' };
+    if (estado === 503) res.set('Retry-After', '5');
+    const cuerpo = { error: estado === 503 ? 'Servicio temporalmente no disponible.' : estado === 500 ? 'Error interno del servidor.' : 'Solicitud invalida.' };
     if (req.path.startsWith('/api')) return res.status(estado).json(cuerpo);
     res.status(estado).type('text/plain').send(cuerpo.error);
   });

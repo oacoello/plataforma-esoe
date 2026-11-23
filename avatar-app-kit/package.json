@@ -1,0 +1,23 @@
+{
+  "name": "esoe-avatar-app-kit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "preparar": "node --experimental-strip-types --env-file-if-exists=.env.local index.ts",
+    "generar": "node --experimental-strip-types --env-file-if-exists=.env.local index.ts --generar",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "comprobar": "tsc --noEmit",
+    "verificar": "npm run comprobar && npm test && npm audit --audit-level=low"
+  },
+  "dependencies": {
+    "@higgsfield/client": "0.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2"
+  }
+}

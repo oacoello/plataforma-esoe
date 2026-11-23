@@ -5,6 +5,6 @@ const { crearApp } = require('../src/app');
 const { crearBaseDeDatos } = require('../src/db');
 
 const config = cargarConfig();
-const db = crearBaseDeDatos(config.databaseUrl);
+const db = crearBaseDeDatos(config.databaseUrl, config.baseDeDatos);
 
 module.exports = crearApp(config, { db });

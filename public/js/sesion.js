@@ -97,8 +97,7 @@ async function iniciarSesionReal(configuracion) {
   sesionReal.clerk = window.Clerk;
   sesionReal.integraciones = Boolean(configuracion.integraciones);
 
-  document.getElementById('login-demo').classList.add('hidden');
-  document.getElementById('role-quick-switch').classList.add('hidden');
+  document.getElementById('login-estado').classList.add('hidden');
 
   if (sesionReal.clerk.isSignedIn) {
     await entrarConSesionReal();
@@ -116,23 +115,32 @@ async function cerrarSesionReal() {
 }
 
 async function iniciarPlataforma() {
-  if (window.location.protocol === 'file:') return;
+  const estado = document.getElementById('login-estado');
+  const noDisponible = () => {
+    estado.classList.remove('hidden');
+    estado.querySelector('p').textContent = 'El acceso institucional no está disponible en este sitio. Contacte con la administración o vuelva a intentarlo más tarde. Por seguridad, el acceso requiere verificar su cuenta.';
+  };
+  if (window.location.protocol === 'file:') return noDisponible();
   let configuracion;
   try {
     const respuesta = await fetch('/api/config', { headers: { Accept: 'application/json' } });
-    if (!respuesta.ok) return;
+    if (!respuesta.ok) return noDisponible();
     configuracion = await respuesta.json();
   } catch {
-    return;
+    return noDisponible();
   }
-  if (!configuracion.autenticacion) return;
+  if (!configuracion.autenticacion) return noDisponible();
 
-  document.getElementById('login-demo').classList.add('hidden');
+  estado.classList.add('hidden');
   try {
     await iniciarSesionReal(configuracion);
   } catch {
+    noDisponible();
     mostrarAvisoDeAcceso('No se pudo cargar el inicio de sesión. Revise su conexión y recargue la página.');
   }
 }
 
-document.addEventListener('DOMContentLoaded', iniciarPlataforma);
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('reintentar-acceso').addEventListener('click', () => window.location.reload());
+  iniciarPlataforma();
+});

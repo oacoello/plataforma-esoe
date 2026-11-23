@@ -188,3 +188,28 @@ test('navegador: el estudiante ve su propio boletin con la nota que puso el cate
     await carla.contexto.close();
   }
 });
+
+test('navegador: la bienvenida identifica la cuenta y el recorrido explica sus herramientas', omitir, async () => {
+  const admin = await equipo(CUENTA.admin, 'ADMIN');
+  try {
+    await admin.pagina.getByRole('heading', { name: 'Hola, Persona de prueba.' }).waitFor();
+    const abrir = admin.pagina.getByRole('button', { name: 'Recorrido guiado', exact: true });
+    await abrir.click();
+    await admin.pagina.getByRole('dialog', { name: 'Bienvenido, Persona de prueba' }).waitFor();
+    const dialogo = admin.pagina.locator('dialog.recorrido');
+    assert.equal(await dialogo.isVisible(), true);
+    await dialogo.getByRole('button', { name: 'Siguiente', exact: true }).click();
+    assert.equal(await dialogo.getByRole('heading', { name: 'Clases', exact: true }).isVisible(), true);
+    await dialogo.getByRole('button', { name: 'Anterior', exact: true }).click();
+    await admin.pagina.keyboard.press('Escape');
+    assert.equal(await admin.pagina.locator('dialog.recorrido').isVisible(), false);
+    assert.equal(await abrir.evaluate((boton) => boton === boton.ownerDocument.activeElement), true);
+    assert.equal(await admin.pagina.locator('#role-quick-switch, #login-demo').count(), 0);
+    await ir(admin.pagina, 'integraciones');
+    await admin.pagina.getByRole('link', { name: /Abrir portal INFOP — E-Learning/ }).waitFor();
+    assert.equal(await admin.pagina.locator('.portales-institucionales a').count(), 4);
+    assert.deepEqual(admin.errores, []);
+  } finally {
+    await admin.contexto.close();
+  }
+});

@@ -10,10 +10,17 @@ verificar un cambio, mantener el estilo del código y desplegar.
 ```bash
 npm ci
 cp .env.example .env
+```
+
+Configure Clerk, PostgreSQL y el origen autorizado antes de continuar. Las órdenes de npm cargan
+`.env` mediante Node, respetando las variables que ya estén presentes en el entorno.
+
+```bash
+npm run migrar
 npm run dev
 ```
 
-Requisitos: Node 22 o superior y, para las pruebas del esquema, un PostgreSQL 16 desechable.
+Requisitos: Node 22.9 o superior y, para las pruebas del esquema, un PostgreSQL 16 desechable.
 
 ---
 
@@ -35,6 +42,11 @@ en el repositorio). `.env.example` lista las variables sin valores.
 | `TRUST_PROXY` | Número de proxies inversos delante de la aplicación (`0`: ninguno). |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | Ventana y máximo de peticiones por cliente. |
 | `PRUEBAS_DATABASE_URL` | Solo para pruebas: PostgreSQL desechable con permiso `CREATEDB`. |
+| `DB_POOL_MAX` | Conexiones máximas a PostgreSQL por proceso (10 por defecto). No es el número de usuarios. |
+| `DB_CONNECTION_TIMEOUT_MS` | Espera máxima para obtener conexión (3000 ms). |
+| `DB_IDLE_TIMEOUT_MS` | Cierre de conexiones inactivas (30000 ms). |
+| `DB_STATEMENT_TIMEOUT_MS` | Tiempo máximo de una sentencia en PostgreSQL (10000 ms). |
+| `RATE_LIMIT_PUBLIC_MAX` | Peticiones anónimas y del servicio de voz por IP y ventana (1200 por defecto). |
 
 ---
 
@@ -104,6 +116,62 @@ Los términos de un commit ya publicado no se corrigen solos: hay que reescribir
 ```bash
 docker compose up -d --build
 ```
+
+Si el entorno usa un proxy HTTPS con una autoridad de certificación propia, la construcción admite
+el secreto opcional de BuildKit `proxy_ca`. El certificado se monta solo durante la instalación y
+no queda en la imagen. Defina `CA_PROXY` con la ruta del certificado confiable del entorno:
+
+```bash
+docker build --secret id=proxy_ca,src="$CA_PROXY" -t esoe-sms:local .
+```
+
+La verificación TLS permanece activa. Sin proxy ni certificado adicional, la construcción habitual
+no necesita este secreto.
+
+## 7. Capacidad y crecimiento
+
+El objetivo inicial es superar 300 cuentas con uso repartido. El pool comparte conexiones entre las
+peticiones; no se abre una conexión por usuario. Los tiempos de adquisición y ejecución son finitos
+y configurables. La carga inicial de la interfaz limita sus peticiones a cuatro simultáneas y conserva
+el orden de los resultados y los errores de cada recurso.
+
+La migración `0007` añade índices para las clases por docente o promoción, las calificaciones y
+asistencias por estudiante y las cuentas externas por usuario. No cambia datos ni permisos.
+
+Las cuentas verificadas por Clerk tienen cuotas independientes aunque compartan la IP de la escuela.
+Los JWT inválidos, las peticiones anónimas y el servicio de voz conservan una cuota por IP. No se
+aceptan identificadores de usuario enviados en cabeceras sin verificar. El proxy de publicación debe
+proteger también contra tráfico volumétrico; configure `TRUST_PROXY` solo para los proxies reales.
+
+Las cuotas de producción se comparten en PostgreSQL entre las réplicas. La suma de los pools debe
+reservar conexiones para administración, migraciones y respaldo. El despliegue incluye preparación
+separada de la base, un rol web limitado y comprobaciones de disponibilidad para el proxy.
+
+Consulte [operación y recuperación](operacion.md) antes de adaptar el despliegue al clúster existente.
+Las pruebas automatizadas utilizan bases desechables y no crean cuentas de clientes en Clerk.
+
+## 8. Cuenta real para presentaciones
+
+Las presentaciones usan Clerk y una institución con datos adecuados para mostrar a clientes. No hay
+acceso local ni selector de rol. Las contraseñas se envían únicamente al proveedor para su creación o
+validación; no se almacenan ni se hashean en el navegador ni en las tablas de la plataforma. No se
+omiten las comprobaciones de contraseña de Clerk.
+
+Configure de forma segura `CLERK_SECRET_KEY`, `DATABASE_URL`, `ESOE_ROOT_USUARIO`, `ESOE_ROOT_CLAVE` y
+`ESOE_ROOT_INSTITUCION`; después ejecute `npm run crear-root`. La clave requiere al menos ocho caracteres
+y debe cumplir la política del proveedor. El correo de esa cuenta es opcional si la instancia permite
+usuario y contraseña sin correo. No se crea una dirección ficticia. Los demás usuarios siguen las
+reglas de registro de Clerk.
+
+El comando comprueba primero la institución en PostgreSQL, aprovisiona la cuenta en Clerk y registra
+el vínculo local ADMIN. Se puede repetir para completar un aprovisionamiento interrumpido; hacerlo
+renueva la contraseña de una cuenta existente. El rol ADMIN tiene acceso a su institución; estudiante
+y catedrático conservan el alcance de sus expedientes y clases. La autoridad del rol procede de Clerk;
+cambiar solo `usuarios.rol` no sustituye la asignación ni la renovación de la sesión del proveedor.
+
+GitHub Pages solo publica archivos estáticos. El acceso institucional y los datos privados requieren
+el servidor API con Clerk y PostgreSQL configurados. Sin él, la pantalla queda cerrada y explica que
+el acceso no está disponible; no cambia a un modo de demostración local.
 
 Al arrancar, el contenedor aplica las migraciones de `database/migraciones/` y luego inicia el
 servidor; si la migración falla, el servidor no arranca. Publicar siempre detrás de un proxy con

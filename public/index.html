@@ -33,6 +33,10 @@
     <div class="escena" aria-hidden="true">
       <div class="escena-plano">
         <img src="img/campus-esoe.svg" alt="" width="1200" height="900">
+        <div class="escena-nube escena-nube-1"></div>
+        <div class="escena-nube escena-nube-2"></div>
+        <div class="escena-nube escena-nube-3"></div>
+      </div>
         <ol class="escena-puntos">
           <li class="punto" data-punto="plaza" style="left:51%; top:43%"><span class="punto-n">01</span><span class="punto-nombre">Plaza de armas</span></li>
           <li class="punto" data-punto="direccion" style="left:59.5%; top:29.2%"><span class="punto-n">02</span><span class="punto-nombre">Dirección</span></li>
@@ -43,10 +47,6 @@
           <li class="punto" data-punto="enfermeria" style="left:41.6%; top:48.8%"><span class="punto-n">07</span><span class="punto-nombre">Enfermería</span></li>
           <li class="punto" data-punto="torre" style="left:73.1%; top:47%"><span class="punto-n">08</span><span class="punto-nombre">Torre de guardia</span></li>
         </ol>
-      </div>
-      <div class="escena-nube escena-nube-1"></div>
-      <div class="escena-nube escena-nube-2"></div>
-      <div class="escena-nube escena-nube-3"></div>
       <p class="escena-pie"><span class="rotulo">Fig. 01 / Plano ilustrativo</span><em>Un campus, una sola plataforma.</em></p>
       <p class="escena-margen rotulo">Escuela de Suboficiales · Estudio y servicio</p>
     </div>
@@ -64,6 +64,17 @@
       </header>
 
       <main id="acceso-principal" class="login-form-panel" aria-labelledby="titulo-acceso">
+        <div class="barra-ambiente" role="toolbar" aria-label="Ambiente">
+          <button type="button" class="ambiente-btn" data-atlas aria-pressed="true" data-on-click="alternarPlano()"><span class="ambiente-ico" aria-hidden="true">▦</span>Plano</button>
+          <button type="button" class="ambiente-btn" data-sonido aria-pressed="false" data-on-click="alternarSonido()"><span class="ambiente-ico" aria-hidden="true">♪</span>Sonido</button>
+          <button type="button" class="ambiente-btn" data-noche aria-pressed="false" data-on-click="alternarNoche()"><span class="ambiente-ico" aria-hidden="true">☾</span>Noche</button>
+          <div class="control-texto" role="group" aria-label="Tamaño del texto">
+            <button type="button" data-tamano-texto="normal" aria-pressed="true" data-on-click="cambiarTamanoTexto('normal')">A<span class="solo-lectores"> normal</span></button>
+            <button type="button" data-tamano-texto="grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('grande')">A+<span class="solo-lectores"> grande</span></button>
+            <button type="button" data-tamano-texto="muy-grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('muy-grande')">A++<span class="solo-lectores"> muy grande</span></button>
+          </div>
+        </div>
+
         <p class="rotulo rotulo-guion">Sistema de gestión académica</p>
         <h1 class="titulo-grande"><span class="linea"><span>Gestión académica</span></span> <em class="linea"><span>y administrativa.</span></em></h1>
         <p class="lema">Clases, asistencia y calificaciones.<br>Todo en un solo lugar.</p>
@@ -76,49 +87,16 @@
         <div id="login-clerk"></div>
         <button type="button" id="login-salir" class="btn btn-outline hidden" data-on-click="cerrarSesionReal()">Usar otra cuenta</button>
 
-        <div id="login-demo">
-          <p class="login-aviso">Modo demostración: los datos se guardan solo en este navegador.</p>
-          <div class="role-selector-cards" role="group" aria-label="Perfil">
-            <button type="button" class="role-card-btn active" data-role="ADMIN" data-on-click="selectLoginRole('ADMIN')">
-              <span data-icon="structure" class="ico-wrap role-ico"></span>
-              <span class="role-nombre">Administrativo</span>
-              <span class="rotulo role-detalle">Estructura y clases</span>
-            </button>
-            <button type="button" class="role-card-btn" data-role="CATEDRATICO" data-on-click="selectLoginRole('CATEDRATICO')">
-              <span data-icon="teachers" class="ico-wrap role-ico"></span>
-              <span class="role-nombre">Catedrático</span>
-              <span class="rotulo role-detalle">Asistencia y notas</span>
-            </button>
-            <button type="button" class="role-card-btn" data-role="ESTUDIANTE" data-on-click="selectLoginRole('ESTUDIANTE')">
-              <span data-icon="students" class="ico-wrap role-ico"></span>
-              <span class="role-nombre">Estudiante</span>
-              <span class="rotulo role-detalle">Boletín y clases</span>
-            </button>
-          </div>
-
-          <form data-on-submit="handleLoginSubmit(event)">
-            <div class="form-group">
-              <label class="form-label" for="login-username">Usuario</label>
-              <input type="text" id="login-username" class="form-control" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="login-password">Contraseña</label>
-              <input type="password" id="login-password" class="form-control" required>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-entrar">
-              <span class="btn-entrar-texto">Entrar a la plataforma<span class="rotulo">Acceso institucional</span></span>
-              <span class="btn-entrar-flecha" aria-hidden="true">↗</span>
-            </button>
-          </form>
+        <div id="login-estado" role="status">
+          <p>Conectando con el acceso institucional seguro…</p>
+          <button type="button" id="reintentar-acceso" class="btn btn-outline">Reintentar conexión</button>
         </div>
 
         <section class="ayuda-acceso" aria-labelledby="ayuda-acceso-titulo">
           <h3 id="ayuda-acceso-titulo">Preguntas frecuentes</h3>
           <details>
-            <summary>¿Qué perfil debo elegir?</summary>
-            <p>Administrativo organiza periodos, promociones, catedráticos y clases. Catedrático registra la asistencia y las calificaciones de sus clases. Estudiante consulta sus clases, su asistencia y su boletín.</p>
+            <summary>¿Cómo se asigna mi perfil?</summary>
+            <p>La administración asigna su perfil a la cuenta institucional. El estudiante consulta su información; el catedrático gestiona sus clases; el administrador gestiona los recursos de su institución. El perfil no se elige al iniciar sesión.</p>
           </details>
           <details>
             <summary>¿Olvidó su contraseña?</summary>
@@ -126,23 +104,13 @@
           </details>
           <details>
             <summary>¿Dónde se guardan mis datos?</summary>
-            <p>Con la cuenta institucional, en el servidor de la ESOE. En el modo demostración, solo en este navegador: si borra los datos de navegación, se pierden.</p>
+            <p>Los expedientes, notas y asistencias se guardan en el servidor de la institución. Clerk gestiona el inicio de sesión; esta página no almacena su contraseña.</p>
           </details>
         </section>
 
         <p class="login-footer-meta rotulo">ESOE &nbsp;/&nbsp; Plataforma de gestión académica
           <button type="button" class="ver-presentacion rotulo" data-on-click="verIntro()">▶ Ver presentación</button></p>
 
-        <div class="barra-ambiente" role="toolbar" aria-label="Ambiente">
-          <button type="button" class="ambiente-btn" data-atlas aria-pressed="true" data-on-click="alternarPlano()"><span class="ambiente-ico" aria-hidden="true">▦</span>Plano</button>
-          <button type="button" class="ambiente-btn" data-sonido aria-pressed="false" data-on-click="alternarSonido()"><span class="ambiente-ico" aria-hidden="true">♪</span>Sonido</button>
-          <button type="button" class="ambiente-btn" data-noche aria-pressed="false" data-on-click="alternarNoche()"><span class="ambiente-ico" aria-hidden="true">☾</span>Noche</button>
-          <div class="control-texto" role="group" aria-label="Tamaño del texto">
-            <button type="button" data-tamano-texto="normal" aria-pressed="true" data-on-click="cambiarTamanoTexto('normal')">A<span class="solo-lectores"> normal</span></button>
-            <button type="button" data-tamano-texto="grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('grande')">A+<span class="solo-lectores"> grande</span></button>
-            <button type="button" data-tamano-texto="muy-grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('muy-grande')">A++<span class="solo-lectores"> muy grande</span></button>
-          </div>
-        </div>
       </main>
     </div>
   </div>
@@ -192,6 +160,7 @@
         </div>
 
         <div class="topbar-right">
+          <button type="button" class="btn btn-outline btn-sm" data-on-click="abrirRecorrido()">Recorrido guiado</button>
           <p class="reloj rotulo"><span class="solo-lectores">Hora local: </span><time data-reloj>--:--</time></p>
           <button type="button" class="ambiente-btn" data-sonido aria-pressed="false" data-on-click="alternarSonido()"><span class="ambiente-ico" aria-hidden="true">♪</span><span class="ambiente-etiqueta">Sonido</span></button>
           <button type="button" class="ambiente-btn" data-noche aria-pressed="false" data-on-click="alternarNoche()"><span class="ambiente-ico" aria-hidden="true">☾</span><span class="ambiente-etiqueta">Noche</span></button>
@@ -205,11 +174,7 @@
             <span>Aprobación Mínima: 70%</span>
           </div>
 
-          <div id="role-quick-switch" class="role-QuickSwitch" title="Cambiar vista de rol para demostración">
-            <button type="button" data-role="ADMIN" class="active" data-on-click="switchActiveRole('ADMIN')">Admin</button>
-            <button type="button" data-role="CATEDRATICO" data-on-click="switchActiveRole('CATEDRATICO')">Catedrático</button>
-            <button type="button" data-role="ESTUDIANTE" data-on-click="switchActiveRole('ESTUDIANTE')">Estudiante</button>
-          </div>
+
         </div>
       </header>
 
@@ -237,9 +202,12 @@
   <script src="js/ambiente.js"></script>
   <script src="js/clerk-es.js"></script>
   <script src="js/sesion.js"></script>
+  <script src="js/catalogo-plataformas.js"></script>
   <script src="js/integraciones.js"></script>
   <script src="js/servidor.js"></script>
   <script src="js/eventos.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/recorrido.js"></script>
+  <script src="js/asistente.js"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ function texto(valor, maximo) {
   return limpio.length <= maximo ? limpio : '';
 }
 
-function crearRutasDeIntegraciones({ config, auth, db }) {
+function crearRutasDeIntegraciones({ config, auth, db, permisos, crearAlmacenLimites = () => undefined }) {
   const rutas = express.Router();
   const cifrador = crearCifrador(config.integraciones.claveCifrado);
   const moodle = crearClienteMoodle(config.integraciones);
@@ -27,7 +27,11 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     return rutas;
   }
 
+  const conSesion = [auth.exigirSesion, permisos.resolverVinculo];
+  const soloAdministracion = [auth.exigirRol('ADMIN'), permisos.resolverVinculo];
+
   const limiteDeVinculacion = rateLimit({
+    store: crearAlmacenLimites('vinculacion'),
     windowMs: 15 * 60 * 1000,
     limit: 10,
     standardHeaders: 'draft-7',
@@ -50,24 +54,25 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     next();
   }
 
-  async function buscarPlataforma(id) {
+  async function buscarPlataforma(id, institucionId) {
     const { rows } = await db.consultar(
-      'SELECT id, nombre, tipo, url_base FROM plataformas_externas WHERE id = $1 AND activa', [id]);
+      `SELECT id, nombre, tipo, url_base FROM plataformas_externas
+        WHERE id = $1 AND institucion_id = $2 AND activa`, [id, institucionId]);
     return rows[0] || null;
   }
 
-  rutas.get('/catalogo', auth.exigirRol('ADMIN'), (req, res) => {
+  rutas.get('/catalogo', ...soloAdministracion, (req, res) => {
     res.json({ plataformas: PLATAFORMAS_CONOCIDAS });
   });
 
-  rutas.get('/plataformas', auth.exigirSesion, async (req, res, next) => {
+  rutas.get('/plataformas', ...conSesion, async (req, res, next) => {
     try {
       const { rows } = await db.consultar(
         `SELECT p.id, p.nombre, p.tipo, p.url_base, c.nombre_remoto, c.vinculada_en
            FROM plataformas_externas p
            LEFT JOIN cuentas_externas c ON c.plataforma_id = p.id AND c.usuario_id = $1
-          WHERE p.activa
-          ORDER BY p.nombre`, [req.identidad.usuarioId]);
+          WHERE p.activa AND p.institucion_id = $2
+          ORDER BY p.nombre`, [req.identidad.usuarioId, req.vinculo.institucionId]);
       res.json({
         plataformas: rows.map((f) => ({
           id: f.id,
@@ -83,7 +88,7 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     }
   });
 
-  rutas.post('/plataformas', auth.exigirRol('ADMIN'), async (req, res, next) => {
+  rutas.post('/plataformas', ...soloAdministracion, async (req, res, next) => {
     try {
       const cuerpo = req.body || {};
       const nombre = texto(cuerpo.nombre, 120);
@@ -106,10 +111,11 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
       }
 
       const { rows } = await db.consultar(
-        `INSERT INTO plataformas_externas (nombre, tipo, url_base, creada_por)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (url_base) DO NOTHING
-         RETURNING id, nombre, tipo, url_base`, [nombre, tipo, urlBase, req.identidad.usuarioId]);
+        `INSERT INTO plataformas_externas (nombre, tipo, url_base, creada_por, institucion_id)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (institucion_id, url_base) DO NOTHING
+         RETURNING id, nombre, tipo, url_base`,
+        [nombre, tipo, urlBase, req.identidad.usuarioId, req.vinculo.institucionId]);
       if (rows.length === 0) return res.status(409).json({ error: 'Esa plataforma ya esta registrada.' });
 
       const f = rows[0];
@@ -122,9 +128,9 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     }
   });
 
-  rutas.post('/plataformas/:id/probar', auth.exigirRol('ADMIN'), validarId, async (req, res, next) => {
+  rutas.post('/plataformas/:id/probar', ...soloAdministracion, validarId, async (req, res, next) => {
     try {
-      const plataforma = await buscarPlataforma(req.params.id);
+      const plataforma = await buscarPlataforma(req.params.id, req.vinculo.institucionId);
       if (!plataforma) return res.status(404).json({ error: 'Plataforma no encontrada.' });
       const sitio = await moodle.configuracionPublica(plataforma.url_base);
       res.json({
@@ -136,9 +142,11 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     }
   });
 
-  rutas.delete('/plataformas/:id', auth.exigirRol('ADMIN'), validarId, async (req, res, next) => {
+  rutas.delete('/plataformas/:id', ...soloAdministracion, validarId, async (req, res, next) => {
     try {
-      const { rowCount } = await db.consultar('DELETE FROM plataformas_externas WHERE id = $1', [req.params.id]);
+      const { rowCount } = await db.consultar(
+        'DELETE FROM plataformas_externas WHERE id = $1 AND institucion_id = $2',
+        [req.params.id, req.vinculo.institucionId]);
       if (rowCount === 0) return res.status(404).json({ error: 'Plataforma no encontrada.' });
       res.status(204).end();
     } catch (error) {
@@ -146,14 +154,14 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     }
   });
 
-  rutas.post('/plataformas/:id/cuenta', auth.exigirSesion, limiteDeVinculacion, validarId, async (req, res, next) => {
+  rutas.post('/plataformas/:id/cuenta', ...conSesion, limiteDeVinculacion, validarId, async (req, res, next) => {
     try {
       const cuerpo = req.body || {};
       const usuario = texto(cuerpo.usuario, 150);
       const clave = typeof cuerpo.clave === 'string' && cuerpo.clave.length <= 300 ? cuerpo.clave : '';
       if (!usuario || !clave) return res.status(422).json({ error: 'Indique usuario y contrasena de esa plataforma.' });
 
-      const plataforma = await buscarPlataforma(req.params.id);
+      const plataforma = await buscarPlataforma(req.params.id, req.vinculo.institucionId);
       if (!plataforma) return res.status(404).json({ error: 'Plataforma no encontrada.' });
 
       const token = await moodle.obtenerToken(plataforma.url_base, usuario, clave);
@@ -175,8 +183,10 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     }
   });
 
-  rutas.delete('/plataformas/:id/cuenta', auth.exigirSesion, validarId, async (req, res, next) => {
+  rutas.delete('/plataformas/:id/cuenta', ...conSesion, validarId, async (req, res, next) => {
     try {
+      const plataforma = await buscarPlataforma(req.params.id, req.vinculo.institucionId);
+      if (!plataforma) return res.status(404).json({ error: 'Plataforma no encontrada.' });
       await db.consultar(
         'DELETE FROM cuentas_externas WHERE plataforma_id = $1 AND usuario_id = $2',
         [req.params.id, req.identidad.usuarioId]);
@@ -186,14 +196,14 @@ function crearRutasDeIntegraciones({ config, auth, db }) {
     }
   });
 
-  rutas.get('/mis-cursos', auth.exigirSesion, async (req, res, next) => {
+  rutas.get('/mis-cursos', ...conSesion, async (req, res, next) => {
     try {
       const { rows } = await db.consultar(
         `SELECT p.id, p.nombre, p.url_base, c.token_cifrado, c.usuario_remoto_id
            FROM cuentas_externas c
            JOIN plataformas_externas p ON p.id = c.plataforma_id AND p.activa
-          WHERE c.usuario_id = $1
-          ORDER BY p.nombre`, [req.identidad.usuarioId]);
+          WHERE c.usuario_id = $1 AND p.institucion_id = $2
+          ORDER BY p.nombre`, [req.identidad.usuarioId, req.vinculo.institucionId]);
 
       const plataformas = await Promise.all(rows.map(async (f) => {
         const base = { id: f.id, nombre: f.nombre };

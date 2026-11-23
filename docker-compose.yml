@@ -1,29 +1,14 @@
 services:
-  esoe-web:
+  esoe-migrar:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: esoe-sms-platform
-    restart: unless-stopped
-    ports:
-      - "${PUERTO_PUBLICO:-8080}:8080"
+    image: esoe-sms:${ESOE_VERSION:-local}
+    command: ["node", "scripts/preparar-base.js"]
     environment:
-      NODE_ENV: production
-      PORT: 8080
       DATABASE_URL: postgresql://esoe_admin:${DB_PASSWORD:?Defina DB_PASSWORD en .env}@esoe-db:5432/esoe_sms
-      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:?Defina CLERK_PUBLISHABLE_KEY en .env}
-      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?Defina CLERK_SECRET_KEY en .env}
-      CLERK_JWT_KEY: ${CLERK_JWT_KEY:-}
-      ORIGEN_PUBLICO: ${ORIGEN_PUBLICO:?Defina ORIGEN_PUBLICO en .env}
-      CLAVE_CIFRADO: ${CLAVE_CIFRADO:?Defina CLAVE_CIFRADO en .env}
-      INTEGRACIONES_RED_PRIVADA: ${INTEGRACIONES_RED_PRIVADA:-false}
-      CORS_ORIGINS: ${CORS_ORIGINS:-}
-      TRUST_PROXY: ${TRUST_PROXY:-0}
-      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
-      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Defina APP_DB_PASSWORD en .env}
     read_only: true
-    tmpfs:
-      - /tmp
     cap_drop:
       - ALL
     security_opt:
@@ -32,11 +17,88 @@ services:
       esoe-db:
         condition: service_healthy
     networks:
+      - esoe-datos
+
+  esoe-entrada:
+    build:
+      context: .
+      dockerfile: deploy/entrada.Dockerfile
+    image: esoe-entrada:${ESOE_VERSION:-local}
+    restart: unless-stopped
+    user: haproxy
+    ports:
+      - "127.0.0.1:${PUERTO_PUBLICO:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /run
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      esoe-web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/api/live"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
       - esoe-net
 
+  esoe-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: esoe-sms:${ESOE_VERSION:-local}
+    command: ["node", "src/server.js"]
+    restart: unless-stopped
+    stop_grace_period: 35s
+    expose:
+      - "8080"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://esoe_app:${APP_DB_PASSWORD:?Defina APP_DB_PASSWORD en .env}@esoe-db:5432/esoe_sms
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-3000}
+      DB_IDLE_TIMEOUT_MS: ${DB_IDLE_TIMEOUT_MS:-30000}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-10000}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:?Defina CLERK_PUBLISHABLE_KEY en .env}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?Defina CLERK_SECRET_KEY en .env}
+      CLERK_JWT_KEY: ${CLERK_JWT_KEY:-}
+      ORIGEN_PUBLICO: ${ORIGEN_PUBLICO:?Defina ORIGEN_PUBLICO en .env}
+      CLAVE_CIFRADO: ${CLAVE_CIFRADO:?Defina CLAVE_CIFRADO en .env}
+      INTEGRACIONES_RED_PRIVADA: ${INTEGRACIONES_RED_PRIVADA:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      RATE_LIMIT_PUBLIC_MAX: ${RATE_LIMIT_PUBLIC_MAX:-1200}
+      RATE_LIMIT_STORE: postgres
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      esoe-migrar:
+        condition: service_completed_successfully
+    networks:
+      - esoe-net
+      - esoe-datos
+
   esoe-db:
-    image: postgres:16-alpine
-    container_name: esoe-sms-db
+    image: postgres:16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d
     restart: unless-stopped
     environment:
       POSTGRES_USER: esoe_admin
@@ -52,11 +114,48 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - esoe-net
+      - esoe-datos
+
+  esoe-respaldos:
+    build:
+      context: .
+      dockerfile: deploy/respaldos.Dockerfile
+    restart: unless-stopped
+    environment:
+      PGHOST: esoe-db
+      PGUSER: esoe_admin
+      PGDATABASE: esoe_sms
+      PGPASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD en .env}
+      RESPALDO_INTERVALO_SEGUNDOS: ${RESPALDO_INTERVALO_SEGUNDOS:-86400}
+      RESPALDO_RETENCION_DIAS: ${RESPALDO_RETENCION_DIAS:-14}
+    volumes:
+      - esoe_respaldos:/respaldos
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      esoe-db:
+        condition: service_healthy
+    networks:
+      - esoe-datos
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ultimo-respaldo && test $$(($$(date +%s) - $$(stat -c %Y /tmp/ultimo-respaldo))) -lt $$(($${RESPALDO_INTERVALO_SEGUNDOS} + 600))"]
+      interval: 60s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
 
 volumes:
   esoe_pgdata:
+  esoe_respaldos:
 
 networks:
   esoe-net:
     driver: bridge
+  esoe-datos:
+    driver: bridge
+    internal: true

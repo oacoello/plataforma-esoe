@@ -70,12 +70,10 @@ function crearPermisos(db) {
       try {
         const claseId = req.params[nombreDelParametro];
         if (!esUuid(claseId)) return res.status(404).json({ error: 'Clase no encontrada.' });
-        if (req.identidad.rol === 'ADMIN') {
-          if (!await esDeLaInstitucion('clases', claseId, req.vinculo.institucionId)) {
-            return res.status(404).json({ error: 'Clase no encontrada.' });
-          }
-          return next();
+        if (!await esDeLaInstitucion('clases', claseId, req.vinculo.institucionId)) {
+          return res.status(404).json({ error: 'Clase no encontrada.' });
         }
+        if (req.identidad.rol === 'ADMIN') return next();
         if (req.identidad.rol !== 'CATEDRATICO') {
           return res.status(403).json({ error: SIN_PERMISO, codigo: 'NO_ES_SUYO' });
         }
@@ -94,12 +92,10 @@ function crearPermisos(db) {
       try {
         const estudianteId = req.params[nombreDelParametro];
         if (!esUuid(estudianteId)) return res.status(404).json({ error: 'Estudiante no encontrado.' });
-        if (req.identidad.rol === 'ADMIN') {
-          if (!await esDeLaInstitucion('estudiantes', estudianteId, req.vinculo.institucionId)) {
-            return res.status(404).json({ error: 'Estudiante no encontrado.' });
-          }
-          return next();
+        if (!await esDeLaInstitucion('estudiantes', estudianteId, req.vinculo.institucionId)) {
+          return res.status(404).json({ error: 'Estudiante no encontrado.' });
         }
+        if (req.identidad.rol === 'ADMIN') return next();
         if (req.identidad.rol === 'ESTUDIANTE') {
           if (req.vinculo.referenciaId !== estudianteId) {
             return res.status(403).json({ error: SIN_PERMISO, codigo: 'NO_ES_SUYO' });

@@ -15,6 +15,18 @@ function leerLista(valor) {
     .filter(Boolean);
 }
 
+function leerEnteroAcotado(env, nombre, porDefecto, minimo, maximo) {
+  const valor = env[nombre];
+  if (valor === undefined || valor === '') return porDefecto;
+  const numero = Number(valor);
+  if (!Number.isSafeInteger(numero) || numero < minimo || numero > maximo) {
+    const error = new Error(`Configuracion invalida: ${nombre} debe ser un entero entre ${minimo} y ${maximo}.`);
+    error.code = 'CONFIG_INVALIDA';
+    throw error;
+  }
+  return numero;
+}
+
 function leerBooleano(valor) {
   return ['1', 'true', 'si', 'yes'].includes(String(valor || '').trim().toLowerCase());
 }
@@ -40,9 +52,17 @@ function cargarConfig(env = process.env) {
     proxiesDeConfianza: leerEntero(env.TRUST_PROXY, 0),
     limitePeticiones: {
       ventanaMs: leerEntero(env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
-      maximo: leerEntero(env.RATE_LIMIT_MAX, 300)
+      maximo: leerEntero(env.RATE_LIMIT_MAX, 300),
+      maximoPublico: leerEntero(env.RATE_LIMIT_PUBLIC_MAX, 1200),
+      almacen: env.RATE_LIMIT_STORE || (entorno === 'production' ? 'postgres' : 'memory')
     },
     databaseUrl: env.DATABASE_URL || '',
+    baseDeDatos: {
+      max: leerEnteroAcotado(env, 'DB_POOL_MAX', env.VERCEL === '1' ? 2 : 10, 1, 100),
+      connectionTimeoutMillis: leerEnteroAcotado(env, 'DB_CONNECTION_TIMEOUT_MS', 3000, 100, 60000),
+      idleTimeoutMillis: leerEnteroAcotado(env, 'DB_IDLE_TIMEOUT_MS', 30000, 1000, 600000),
+      statement_timeout: leerEnteroAcotado(env, 'DB_STATEMENT_TIMEOUT_MS', 10000, 100, 120000)
+    },
     clerk: {
       habilitado: Boolean(llavePublica && llaveSecreta),
       llavePublica,
@@ -87,13 +107,28 @@ function validarConfig(config) {
   if (config.voz.token && config.voz.token.length < 32) {
     errores.push('VOZ_TOKEN debe tener al menos 32 caracteres (openssl rand -hex 32).');
   }
+  if (!['memory', 'postgres'].includes(config.limitePeticiones.almacen)) {
+    errores.push('RATE_LIMIT_STORE debe ser memory o postgres.');
+  }
   if (!config.esProduccion) return errores;
+
+  if (config.limitePeticiones.almacen !== 'postgres') {
+    errores.push('RATE_LIMIT_STORE debe ser postgres en produccion para compartir las cuotas entre instancias.');
+  }
 
   if (!clerk.habilitado) {
     errores.push('CLERK_PUBLISHABLE_KEY y CLERK_SECRET_KEY son obligatorias en produccion.');
   }
   if (clerk.origenesAutorizados.length === 0) {
     errores.push('ORIGEN_PUBLICO es obligatorio en produccion (por ejemplo https://esoe.ejemplo.hn).');
+  }
+  for (const origen of clerk.origenesAutorizados) {
+    try {
+      const url = new URL(origen);
+      if (url.protocol !== 'https:' || url.origin !== origen) throw new Error('Origen no canonico.');
+    } catch {
+      errores.push('ORIGEN_PUBLICO debe contener origenes HTTPS sin rutas, credenciales ni barra final.');
+    }
   }
   if (!integraciones.claveCifrado) {
     errores.push('CLAVE_CIFRADO es obligatoria en produccion.');

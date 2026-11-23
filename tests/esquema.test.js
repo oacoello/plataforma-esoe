@@ -67,7 +67,7 @@ test('esquema: se aplica completo sobre una base vacia', { skip: omitir }, async
   assert.deepEqual(rows.map((r) => r.table_name), [
     'auditoria', 'calificaciones', 'catedraticos', 'clases',
     'cuentas_externas', 'detalle_asistencia', 'estudiantes', 'instituciones',
-    'materias', 'migraciones_aplicadas', 'periodos_lectivos', 'plataformas_externas', 'promociones',
+    'limites_peticion', 'materias', 'migraciones_aplicadas', 'periodos_lectivos', 'plataformas_externas', 'promociones',
     'sesiones_asistencia', 'usuarios'
   ]);
 });

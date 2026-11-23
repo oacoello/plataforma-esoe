@@ -121,11 +121,12 @@ function crearRutasExpedientes({ auth, db, permisos }) {
                      WHERE promocion_id IN (SELECT promocion_id FROM clases
                                              WHERE catedratico_id = $1 AND activa = TRUE)
                        AND ($2::uuid IS NULL OR promocion_id = $2)
+                       AND institucion_id = $3
                      ORDER BY apellidos, nombres`;
-        parametros = [req.vinculo.referenciaId, promocion || null];
+        parametros = [req.vinculo.referenciaId, promocion || null, req.vinculo.institucionId];
       } else {
-        consulta = `SELECT ${ESTUDIANTE.completo} FROM estudiantes WHERE id = $1`;
-        parametros = [req.vinculo.referenciaId];
+        consulta = `SELECT ${ESTUDIANTE.completo} FROM estudiantes WHERE id = $1 AND institucion_id = $2`;
+        parametros = [req.vinculo.referenciaId, req.vinculo.institucionId];
       }
       const { rows } = await db.consultar(consulta, parametros);
       privado(res).json({ estudiantes: rows });

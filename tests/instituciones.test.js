@@ -152,3 +152,65 @@ test('instituciones: lo que llega sin institucion queda en la ESOE, como antes',
     `INSERT INTO materias (codigo, nombre) VALUES ('SIN-INST', 'Antigua') RETURNING institucion_id`);
   assert.equal(rows[0].institucion_id, d.inst.ESOE);
 });
+
+test('instituciones: trasladar un docente revoca acceso a sus clases y alumnos anteriores aunque conserve la referencia', sinBase, async () => {
+  const usuario = 'user_docente_trasladado';
+  const cabeceras = como('CATEDRATICO', usuario);
+  await base.db.consultar(
+    `INSERT INTO usuarios (username, proveedor_id, rol, nombre_completo, institucion_id, referencia_id)
+     VALUES ($1, $1, 'CATEDRATICO', $1, $2, $3)`, [usuario, d.inst.ESOE, d.esoe.catedratico.id]);
+  const nota = await servidor.enviar(`/api/clases/${d.esoe.clase.id}/calificaciones/${d.esoe.estudiante.id}`,
+    { parcial_1: 91 }, ADMIN_ESOE, 'PUT');
+  assert.equal(nota.status, 200);
+  const propia = await servidor.pedir(`/api/clases/${d.esoe.clase.id}/calificaciones`, { headers: cabeceras });
+  assert.equal(propia.status, 200);
+  assert.equal((await propia.json()).calificaciones.length, 1);
+  await base.db.consultar('UPDATE usuarios SET institucion_id = $1 WHERE proveedor_id = $2', [d.inst.INFOP, usuario]);
+
+  for (const [ruta, clave] of [['/api/clases', 'clases'], ['/api/estudiantes', 'estudiantes']]) {
+    const r = await servidor.pedir(ruta, { headers: cabeceras });
+    assert.equal(r.status, 200);
+    assert.deepEqual((await r.json())[clave], [], ruta);
+  }
+  for (const ruta of [
+    `/api/clases/${d.esoe.clase.id}/calificaciones`, `/api/clases/${d.esoe.clase.id}/asistencia`,
+    `/api/clases/${d.esoe.clase.id}/auditoria`, `/api/estudiantes/${d.esoe.estudiante.id}`,
+    `/api/estudiantes/${d.esoe.estudiante.id}/boletin`, `/api/estudiantes/${d.esoe.estudiante.id}/asistencia`
+  ]) {
+    const r = await servidor.pedir(ruta, { headers: cabeceras });
+    assert.equal(r.status, 404, ruta);
+    assert.ok(!JSON.stringify(await r.json()).includes(d.esoe.estudiante.id));
+  }
+  const alterarNota = await servidor.enviar(`/api/clases/${d.esoe.clase.id}/calificaciones/${d.esoe.estudiante.id}`,
+    { parcial_1: 1 }, cabeceras, 'PUT');
+  assert.equal(alterarNota.status, 404);
+  const alterarAsistencia = await servidor.enviar(`/api/clases/${d.esoe.clase.id}/asistencia`, {
+    fecha: '2026-02-02', registros: [{ estudiante_id: d.esoe.estudiante.id, estado: 'AUSENTE' }]
+  }, cabeceras);
+  assert.equal(alterarAsistencia.status, 404);
+  const { rows: [sinCambios] } = await base.db.consultar(
+    'SELECT parcial_1 FROM calificaciones WHERE clase_id = $1 AND estudiante_id = $2',
+    [d.esoe.clase.id, d.esoe.estudiante.id]);
+  assert.equal(Number(sinCambios.parcial_1), 91);
+});
+
+test('instituciones: trasladar un estudiante oculta expediente, boletin y asistencia anteriores con referencia vieja', sinBase, async () => {
+  const usuario = 'user_estudiante_trasladado';
+  const cabeceras = como('ESTUDIANTE', usuario);
+  await base.db.consultar(
+    `INSERT INTO usuarios (username, proveedor_id, rol, nombre_completo, institucion_id, referencia_id)
+     VALUES ($1, $1, 'ESTUDIANTE', $1, $2, $3)`, [usuario, d.inst.ESOE, d.esoe.estudiante.id]);
+  const anterior = await servidor.pedir(`/api/estudiantes/${d.esoe.estudiante.id}/boletin`, { headers: cabeceras });
+  assert.equal(anterior.status, 200);
+  assert.equal((await anterior.json()).calificaciones.length, 1);
+  await base.db.consultar('UPDATE usuarios SET institucion_id = $1 WHERE proveedor_id = $2', [d.inst.INFOP, usuario]);
+
+  const listado = await servidor.pedir('/api/estudiantes', { headers: cabeceras });
+  assert.equal(listado.status, 200);
+  assert.deepEqual((await listado.json()).estudiantes, []);
+  for (const sufijo of ['', '/boletin', '/asistencia']) {
+    const r = await servidor.pedir(`/api/estudiantes/${d.esoe.estudiante.id}${sufijo}`, { headers: cabeceras });
+    assert.equal(r.status, 404, sufijo);
+    assert.ok(!JSON.stringify(await r.json()).includes(d.esoe.estudiante.id));
+  }
+});

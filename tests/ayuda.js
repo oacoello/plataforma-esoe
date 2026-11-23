@@ -84,7 +84,7 @@ async function crearBaseDePrueba() {
     db,
     async cerrar() {
       await db.cerrar();
-      await admin.query(`DROP DATABASE IF EXISTS ${nombre} WITH (FORCE)`);
+      await admin.query(`DROP DATABASE IF EXISTS ${nombre}`);
       await admin.end();
     }
   };

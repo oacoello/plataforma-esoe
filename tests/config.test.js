@@ -68,3 +68,30 @@ test('config: valores numericos invalidos caen al valor por defecto', () => {
   assert.equal(config.puerto, 8080);
   assert.equal(config.limitePeticiones.maximo, 300);
 });
+
+test('config: el pool tiene limites finitos y configurables sin cambiar Clerk', () => {
+  const configurada = cargarConfig({ ...PRODUCCION, DB_POOL_MAX: '4', DB_CONNECTION_TIMEOUT_MS: '1000', DB_STATEMENT_TIMEOUT_MS: '2000' });
+  assert.deepEqual(configurada.baseDeDatos, { max: 4, connectionTimeoutMillis: 1000, idleTimeoutMillis: 30000, statement_timeout: 2000 });
+  assert.deepEqual(configurada.clerk, cargarConfig(PRODUCCION).clerk);
+  for (const valor of ['0', '-1', '101', '2.5', '12abc', 'Infinity']) {
+    assert.throws(() => cargarConfig({ DB_POOL_MAX: valor }), /DB_POOL_MAX/);
+  }
+  for (const variable of ['DB_CONNECTION_TIMEOUT_MS', 'DB_IDLE_TIMEOUT_MS', 'DB_STATEMENT_TIMEOUT_MS']) {
+    assert.throws(() => cargarConfig({ [variable]: '0' }), new RegExp(variable));
+  }
+});
+
+test('config: produccion comparte cuotas y el despliegue sin servidor usa un pool pequeno', () => {
+  assert.equal(cargarConfig(PRODUCCION).limitePeticiones.almacen, 'postgres');
+  assert.equal(cargarConfig({}).limitePeticiones.almacen, 'memory');
+  assert.throws(() => cargarConfig({ ...PRODUCCION, RATE_LIMIT_STORE: 'memory' }), /RATE_LIMIT_STORE/);
+  assert.throws(() => cargarConfig({ RATE_LIMIT_STORE: 'desconocido' }), /RATE_LIMIT_STORE/);
+  assert.equal(cargarConfig({ VERCEL: '1' }).baseDeDatos.max, 2);
+  assert.equal(cargarConfig({ VERCEL: '1', DB_POOL_MAX: '4' }).baseDeDatos.max, 4);
+});
+
+test('config: la publicacion exige origen HTTPS sin rutas ni credenciales', () => {
+  for (const origen of ['http://esoe.example', 'https://esoe.example/ruta', 'https://usuario:clave@esoe.example']) {
+    assert.throws(() => cargarConfig({ ...PRODUCCION, ORIGEN_PUBLICO: origen }), /ORIGEN_PUBLICO/);
+  }
+});

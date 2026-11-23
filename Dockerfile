@@ -4,17 +4,23 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    npm ci --omit=dev --strict-ssl=true && npm cache clean --force
 
 COPY src ./src
 COPY public ./public
 COPY database/migraciones ./database/migraciones
 COPY scripts/migrar.js ./scripts/migrar.js
+COPY scripts/preparar-base.js ./scripts/preparar-base.js
+
+RUN chmod -R a=rX /app/src /app/public /app/database /app/scripts \
+    && chmod a=r /app/package.json /app/package-lock.json
 
 USER node
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["sh", "-c", "node scripts/migrar.js && exec node src/server.js"]

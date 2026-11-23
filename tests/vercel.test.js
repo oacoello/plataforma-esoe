@@ -21,7 +21,11 @@ function cargarEntrada(env) {
 }
 
 test('vercel: la entrada exporta la aplicacion y sirve interfaz y API con cabeceras', async () => {
-  const app = cargarEntrada({ NODE_ENV: 'test', DATABASE_URL: '' });
+  const app = cargarEntrada({
+    NODE_ENV: 'test', DATABASE_URL: '', RATE_LIMIT_STORE: 'memory',
+    CLERK_PUBLISHABLE_KEY: '', CLERK_SECRET_KEY: '', CLERK_JWT_KEY: '',
+    CLAVE_CIFRADO: '', VOZ_TOKEN: ''
+  });
   assert.equal(typeof app, 'function');
   const servidor = http.createServer(app).listen(0, '127.0.0.1');
   await new Promise((r) => servidor.once('listening', r));

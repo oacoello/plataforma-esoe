@@ -55,7 +55,19 @@ function agruparAsistencia(claseId, filas) {
 }
 
 async function pedirVarias(rutas) {
-  const resultados = await Promise.allSettled(rutas.map((r) => api(r)));
+  const resultados = new Array(rutas.length);
+  let siguiente = 0;
+  async function trabajar() {
+    while (siguiente < rutas.length) {
+      const indice = siguiente++;
+      try {
+        resultados[indice] = { status: 'fulfilled', value: await api(rutas[indice]) };
+      } catch (reason) {
+        resultados[indice] = { status: 'rejected', reason };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(4, rutas.length) }, trabajar));
   return resultados.map((r) => {
     if (r.status === 'fulfilled') return r.value;
     if (r.reason && r.reason.codigo === 'SIN_EXPEDIENTE') {

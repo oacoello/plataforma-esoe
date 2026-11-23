@@ -134,7 +134,7 @@ test('api: rechaza cuerpos mayores al limite', async () => {
 });
 
 test('api: limite de peticiones activo', async () => {
-  const limitado = await levantar({ RATE_LIMIT_MAX: '3' });
+  const limitado = await levantar({ RATE_LIMIT_PUBLIC_MAX: '3' });
   try {
     const estados = [];
     for (let i = 0; i < 5; i += 1) estados.push((await limitado.pedir('/api/health')).status);

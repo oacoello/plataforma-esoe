@@ -18,6 +18,14 @@ let plataformaId;
 before(async () => {
   if (omitir) return;
   base = await crearBaseDePrueba();
+  for (const [usuario, rol] of [
+    ['user_prueba', 'ADMIN'], ['user_admin', 'ADMIN'], ['user_alumno', 'ESTUDIANTE'],
+    ['user_otro', 'ESTUDIANTE'], ['user_insistente', 'ESTUDIANTE'], ['user_tranquilo', 'ESTUDIANTE']
+  ]) {
+    await base.db.consultar(
+      `INSERT INTO usuarios (username, proveedor_id, rol, nombre_completo)
+       VALUES ($1, $1, $2, $1)`, [usuario, rol]);
+  }
   moodle = await crearMoodleFalso();
   app = await levantar(ENTORNO_CON_SESION, { db: base.db });
 });

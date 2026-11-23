@@ -82,6 +82,37 @@ test('migraciones: ejecutarla otra vez no aplica ni duplica nada', sinBase, asyn
   }
 });
 
+test('migraciones: separar plataformas por institucion conserva plataformas y cuentas anteriores', sinBase, async () => {
+  const c = await baseNueva();
+  const anteriores = directorioCon(Object.fromEntries(
+    leerMigraciones().filter((m) => m.version <= 5).map((m) => [m.archivo, m.contenido])));
+  try {
+    await migrar({ cliente: c, directorio: anteriores });
+    const { rows: [plataforma] } = await c.query(
+      `INSERT INTO plataformas_externas (nombre, tipo, url_base, creada_por)
+       VALUES ('Campus anterior', 'MOODLE', 'https://campus.example', 'user_anterior') RETURNING *`);
+    const { rows: [cuenta] } = await c.query(
+      `INSERT INTO cuentas_externas (plataforma_id, usuario_id, token_cifrado, usuario_remoto_id, nombre_remoto)
+       VALUES ($1, 'user_anterior', 'cifrado-anterior', 42, 'Cuenta anterior') RETURNING *`, [plataforma.id]);
+    const resultado = await migrar({ cliente: c });
+    assert.ok(resultado.aplicadas.some((nombre) => String(nombre).includes('0006')));
+    assert.deepEqual((await c.query('SELECT * FROM plataformas_externas WHERE id = $1', [plataforma.id])).rows, [plataforma]);
+    assert.deepEqual((await c.query('SELECT * FROM cuentas_externas WHERE id = $1', [cuenta.id])).rows, [cuenta]);
+    await c.query(
+      `INSERT INTO plataformas_externas (nombre, tipo, url_base, creada_por, institucion_id)
+       SELECT 'Campus INFOP', 'MOODLE', $1, 'user_infop', id FROM instituciones WHERE codigo = 'INFOP'`,
+      [plataforma.url_base]);
+    assert.equal((await c.query('SELECT count(*)::int AS n FROM plataformas_externas')).rows[0].n, 2);
+    await assert.rejects(c.query(
+      `INSERT INTO plataformas_externas (nombre, tipo, url_base, creada_por)
+       VALUES ('Duplicada ESOE', 'MOODLE', $1, 'user_anterior')`, [plataforma.url_base]),
+    (error) => error.code === '23505');
+  } finally {
+    await c.end();
+    fs.rmSync(anteriores, { recursive: true, force: true });
+  }
+});
+
 test('migraciones: una migracion que falla se deshace entera y no se registra', sinBase, async () => {
   const c = await baseNueva();
   const dir = directorioCon({

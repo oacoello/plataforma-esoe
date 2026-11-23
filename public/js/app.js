@@ -1,4 +1,4 @@
-let store = loadStore();
+let store = emptyStore();
 document.addEventListener('DOMContentLoaded', () => hydrateStaticIcons());
 
 let appState = {
@@ -147,30 +147,6 @@ function showToast(mensaje) {
   });
 }
 
-function selectLoginRole(role) {
-  appState.currentRole = role;
-  document.querySelectorAll('.role-card-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.role === role);
-  });
-}
-
-function handleLoginSubmit(e) {
-  e.preventDefault();
-  if (sesionReal.activa) return;
-  appState.authenticated = true;
-  mostrarPantalla('app');
-
-  if (appState.currentRole === 'ESTUDIANTE') {
-    appState.currentView = 'boletin';
-  } else {
-    appState.currentView = 'dashboard';
-  }
-
-  renderSidebarAndHeader();
-  renderMainView();
-  showToast('Sesión iniciada');
-}
-
 function handleLogout() {
   if (sesionReal.activa) {
     cerrarSesionReal();
@@ -178,17 +154,6 @@ function handleLogout() {
   }
   appState.authenticated = false;
   mostrarPantalla('acceso');
-}
-
-function switchActiveRole(role) {
-  if (sesionReal.activa) return;
-  appState.currentRole = role;
-  if (role === 'ESTUDIANTE' && ['estructura', 'catedraticos'].includes(appState.currentView)) {
-    appState.currentView = 'boletin';
-  }
-  renderSidebarAndHeader();
-  renderMainView();
-  showToast(`Vista cambiada a perfil: ${role}`);
 }
 
 function toggleMobileSidebar() {
@@ -254,25 +219,11 @@ function renderSidebarAndHeader() {
     profileName.textContent = nombre;
     profileRole.textContent = etiquetas[role] || '';
     profileAvatar.textContent = nombre.slice(0, 2).toUpperCase();
-  } else if (role === 'ADMIN') {
-    profileName.textContent = 'Jefatura de Estudios';
-    profileRole.textContent = 'Personal Administrativo';
-    profileAvatar.textContent = 'JE';
-  } else if (role === 'CATEDRATICO') {
-    const cat = getCatedratico(appState.selectedCatedraticoId);
-    profileName.textContent = formatNombreConGrado(cat);
-    profileRole.textContent = 'Catedrático';
-    profileAvatar.textContent = 'CT';
   } else {
-    const est = getEstudiante(appState.selectedEstudianteId);
-    profileName.textContent = formatNombreConGrado(est);
-    profileRole.textContent = `Cód. ${est ? est.codigoAlumno : ''}`;
-    profileAvatar.textContent = 'AL';
+    profileName.textContent = 'Sin sesión';
+    profileRole.textContent = 'Acceso institucional';
+    profileAvatar.textContent = '';
   }
-
-  document.querySelectorAll('#role-quick-switch button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.role === role);
-  });
 }
 
 function renderMainView() {
@@ -364,7 +315,7 @@ function renderBienvenida() {
         <p class="rotulo rotulo-guion">Portal ESOE</p>
         <h2 id="bienvenida-titulo">Hola, <em>${esc(nombre)}</em>.</h2>
         <p>Aquí tiene sus clases, la asistencia y las calificaciones del periodo.</p>
-        <div class="bienvenida-accesos">${accesos}</div>
+        <div class="bienvenida-accesos">${accesos}<button type="button" class="btn btn-outline" data-on-click="abrirRecorrido()">Conocer las herramientas</button></div>
       </div>
       <img class="bienvenida-escudo" src="img/escudo-esoe.svg" alt="" width="120" height="126">
     </section>
@@ -676,11 +627,6 @@ function filtrarCatedraticos(valor) {
   renderMainView();
 }
 
-function confirmarActaCalificaciones() {
-  saveStore(store);
-  showToast('Calificaciones registradas en el acta oficial');
-}
-
 function imprimirPagina() {
   window.print();
 }
@@ -884,14 +830,14 @@ function renderAsistenciaView() {
   let sesion = store.asistencias.find(a => a.claseId === claseActual.id && a.fecha === fecha);
   if (!sesion) {
     sesion = {
-      id: 'asis-' + Date.now(),
+      id: 'borrador-' + Date.now(),
       claseId: claseActual.id,
       fecha,
       tema: 'Sesión ordinaria de clase',
       registros: alumnosSeccion.map(al => ({ estudianteId: al.id, estado: 'PRESENTE', observacion: '' }))
     };
     store.asistencias.push(sesion);
-    saveStore(store);
+
   }
 
   const rows = alumnosSeccion.map(est => {
@@ -1000,7 +946,7 @@ function setEstadoAsistencia(sesionId, estudianteId, estado) {
   const reg = sesion.registros.find(r => r.estudianteId === estudianteId);
   if (reg) {
     reg.estado = estado;
-    saveStore(store);
+
     renderMainView();
   }
 }
@@ -1011,7 +957,7 @@ function setObservacionAsistencia(sesionId, estudianteId, texto) {
   const reg = sesion.registros.find(r => r.estudianteId === estudianteId);
   if (reg) {
     reg.observacion = texto;
-    saveStore(store);
+
   }
 }
 
@@ -1019,7 +965,7 @@ function actualizarTemaAsistencia(sesionId, tema) {
   const sesion = store.asistencias.find(s => s.id === sesionId);
   if (sesion) {
     sesion.tema = tema;
-    saveStore(store);
+
   }
 }
 
@@ -1027,20 +973,15 @@ function marcarTodosPresentes(sesionId) {
   const sesion = store.asistencias.find(s => s.id === sesionId);
   if (!sesion) return;
   sesion.registros.forEach(r => { r.estado = 'PRESENTE'; });
-  saveStore(store);
+
   renderMainView();
   showToast('Todos los alumnos marcados como presentes');
 }
 
 function guardarSesionAsistencia() {
-  if (sesionReal.activa) {
-    const claseId = appState.filters.asistenciaClaseId || store.clases[0]?.id;
-    const sesion = store.asistencias.find(a => a.claseId === claseId && a.fecha === appState.filters.asistenciaFecha);
-    if (sesion) guardarAsistenciaEnServidor(sesion);
-    return;
-  }
-  saveStore(store);
-  showToast('Acta de asistencia de clase guardada correctamente');
+  const claseId = appState.filters.asistenciaClaseId || store.clases[0]?.id;
+  const sesion = store.asistencias.find(a => a.claseId === claseId && a.fecha === appState.filters.asistenciaFecha);
+  if (sesion) guardarAsistenciaEnServidor(sesion);
 }
 
 function renderCalificacionesView() {
@@ -1101,9 +1042,7 @@ function renderCalificacionesView() {
           <h2>Libro de notas</h2>
           <p>Escala de 0% a 100% | Nota mínima aprobatoria: <strong>70%</strong> | Catedrático: <strong>${esc(formatNombreConGrado(cat))}</strong></p>
         </div>
-        <button class="btn btn-primary" data-on-click="confirmarActaCalificaciones()">
-          ${ICONS.check} Guardar
-        </button>
+        <p class="rotulo">Cada cambio se guarda en el servidor.</p>
       </div>
       <div class="panel-body">
         <div class="toolbar">
@@ -1147,15 +1086,7 @@ function actualizarNota(claseId, estudianteId, campo, valor) {
   let num = Number(valor);
   if (isNaN(num) || num < 0) num = 0;
   if (num > 100) num = 100;
-  if (sesionReal.activa) {
-    guardarNotaEnServidor(claseId, estudianteId, campo, Math.round(num * 100) / 100);
-    return;
-  }
-
-  const cal = obtenerCalificacion(claseId, estudianteId);
-  cal[campo] = num;
-  saveStore(store);
-  renderMainView();
+  guardarNotaEnServidor(claseId, estudianteId, campo, Math.round(num * 100) / 100);
 }
 
 function renderBoletinView() {
@@ -1427,7 +1358,6 @@ function guardarNuevoEstudiante(e) {
   e.preventDefault();
   const condicion = document.getElementById('est-condicion').value;
   const nuevo = {
-    id: 'est-' + Date.now(),
     codigoAlumno: document.getElementById('est-codigo').value.trim(),
     dni: document.getElementById('est-dni').value.trim(),
     nombres: document.getElementById('est-nombres').value.trim(),
@@ -1445,15 +1375,7 @@ function guardarNuevoEstudiante(e) {
     estado: 'ACTIVO'
   };
 
-  if (sesionReal.activa) {
-    crearEnServidor('estudiante', nuevo, `Estudiante ${nuevo.nombres} ${nuevo.apellidos} registrado exitosamente`);
-    return;
-  }
-  store.estudiantes.push(nuevo);
-  saveStore(store);
-  closeModal();
-  renderMainView();
-  showToast(`Estudiante ${nuevo.nombres} ${nuevo.apellidos} registrado exitosamente`);
+  crearEnServidor('estudiante', nuevo, `Estudiante ${nuevo.nombres} ${nuevo.apellidos} registrado exitosamente`);
 }
 
 function openModalNuevoCatedratico() {
@@ -1510,7 +1432,6 @@ function guardarNuevoCatedratico(e) {
   e.preventDefault();
   const condicion = document.getElementById('cat-condicion').value;
   const nuevo = {
-    id: 'cat-' + Date.now(),
     dni: document.getElementById('cat-dni').value.trim(),
     nombres: document.getElementById('cat-nombres').value.trim(),
     apellidos: document.getElementById('cat-apellidos').value.trim(),
@@ -1522,15 +1443,7 @@ function guardarNuevoCatedratico(e) {
     activo: true
   };
 
-  if (sesionReal.activa) {
-    crearEnServidor('catedratico', nuevo, `Catedrático ${formatNombreConGrado(nuevo)} registrado correctamente`);
-    return;
-  }
-  store.catedraticos.push(nuevo);
-  saveStore(store);
-  closeModal();
-  renderMainView();
-  showToast(`Catedrático ${formatNombreConGrado(nuevo)} registrado correctamente`);
+  crearEnServidor('catedratico', nuevo, `Catedrático ${formatNombreConGrado(nuevo)} registrado correctamente`);
 }
 
 function openModalNuevoPeriodo() {
@@ -1573,7 +1486,6 @@ function openModalNuevoPeriodo() {
 function guardarNuevoPeriodo(e) {
   e.preventDefault();
   const nuevo = {
-    id: 'per-' + Date.now(),
     codigo: document.getElementById('per-codigo').value.trim(),
     nombre: document.getElementById('per-nombre').value.trim(),
     modalidad: document.getElementById('per-modalidad').value,
@@ -1581,15 +1493,7 @@ function guardarNuevoPeriodo(e) {
     fechaFin: document.getElementById('per-fin').value,
     activo: true
   };
-  if (sesionReal.activa) {
-    crearEnServidor('periodo', nuevo, 'Nuevo periodo lectivo habilitado');
-    return;
-  }
-  store.periodos.push(nuevo);
-  saveStore(store);
-  closeModal();
-  renderMainView();
-  showToast('Nuevo periodo lectivo habilitado');
+  crearEnServidor('periodo', nuevo, 'Nuevo periodo lectivo habilitado');
 }
 
 function openModalNuevaPromocion() {
@@ -1623,24 +1527,14 @@ function openModalNuevaPromocion() {
 
 function guardarNuevaPromocion(e) {
   e.preventDefault();
-  const promId = 'prom-' + Date.now();
   const nuevo = {
-    id: promId,
     codigo: document.getElementById('prom-codigo').value.trim(),
     nombre: document.getElementById('prom-nombre').value.trim(),
     anioIngreso: Number(document.getElementById('prom-ingreso').value),
     anioEgreso: Number(document.getElementById('prom-egreso').value),
     activa: true
   };
-  if (sesionReal.activa) {
-    crearEnServidor('promocion', nuevo, 'Promoción creada');
-    return;
-  }
-  store.promociones.push(nuevo);
-  saveStore(store);
-  closeModal();
-  renderMainView();
-  showToast('Promoción creada');
+  crearEnServidor('promocion', nuevo, 'Promoción creada');
 }
 
 function openModalNuevaMateria() {
@@ -1671,21 +1565,12 @@ function openModalNuevaMateria() {
 function guardarNuevaMateria(e) {
   e.preventDefault();
   const nuevo = {
-    id: 'mat-' + Date.now(),
     codigo: document.getElementById('mat-codigo').value.trim(),
     nombre: document.getElementById('mat-nombre').value.trim(),
     uv: Number(document.getElementById('mat-uv').value),
     horasSemanales: 4
   };
-  if (sesionReal.activa) {
-    crearEnServidor('materia', nuevo, 'Materia agregada al catálogo institucional');
-    return;
-  }
-  store.materias.push(nuevo);
-  saveStore(store);
-  closeModal();
-  renderMainView();
-  showToast('Materia agregada al catálogo institucional');
+  crearEnServidor('materia', nuevo, 'Materia agregada al catálogo institucional');
 }
 
 function openModalNuevaClase() {
@@ -1741,7 +1626,6 @@ function openModalNuevaClase() {
 function guardarNuevaClase(e) {
   e.preventDefault();
   const nuevo = {
-    id: 'cls-' + Date.now(),
     codigoClase: document.getElementById('cls-codigo').value.trim(),
     periodoId: document.getElementById('cls-periodo').value,
     promocionId: document.getElementById('cls-promocion').value,
@@ -1750,13 +1634,5 @@ function guardarNuevaClase(e) {
     horario: document.getElementById('cls-horario').value.trim(),
     aula: document.getElementById('cls-aula').value.trim()
   };
-  if (sesionReal.activa) {
-    crearEnServidor('clase', nuevo, 'Clase registrada');
-    return;
-  }
-  store.clases.push(nuevo);
-  saveStore(store);
-  closeModal();
-  renderMainView();
-  showToast('Clase registrada');
+  crearEnServidor('clase', nuevo, 'Clase registrada');
 }

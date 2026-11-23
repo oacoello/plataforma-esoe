@@ -1,11 +1,19 @@
 const integraciones = { cargando: false, error: '', plataformas: [], cursos: [], catalogo: [] };
 
+function renderPortalesInstitucionales() {
+  const tarjetas = PLATAFORMAS_PUBLICAS.map((plataforma) => `
+    <article class="portal-institucional"><h3>${esc(plataforma.nombre)}</h3><p>${esc(plataforma.descripcion)}</p>
+      <a class="btn btn-outline" href="${esc(plataforma.urlBase)}" target="_blank" rel="noopener noreferrer">Abrir portal<span class="solo-lectores"> ${esc(plataforma.nombre)}</span> ↗</a>
+    </article>`).join('');
+  return `<section aria-label="Portales institucionales"><h2>Portales de formación</h2><p>Acceda a los sitios oficiales. Cada portal conserva su propio inicio de sesión.</p><div class="portales-institucionales">${tarjetas}</div></section>`;
+}
+
 function renderIntegracionesView() {
   if (!sesionReal.activa) {
-    return emptyState('La conexión con otras plataformas requiere iniciar sesión en el servidor de la escuela. No está disponible en el modo demostración.');
+    return renderPortalesInstitucionales() + '<p>Para consultar aquí sus cursos y calificaciones, inicie sesión con su cuenta institucional y vincule su propia cuenta.</p>';
   }
   if (!sesionReal.integraciones) {
-    return emptyState('La conexión con otras plataformas aún no está configurada en este servidor.');
+    return renderPortalesInstitucionales() + '<p>La administración debe habilitar la vinculación de cuentas para consultar aquí sus cursos y calificaciones.</p>';
   }
   if (!integraciones.cargando) cargarIntegraciones();
   return '<div id="integraciones-contenido"></div>';
@@ -88,7 +96,7 @@ function pintarIntegraciones() {
           <td style="text-align:right;"><button type="button" class="btn btn-outline btn-sm" data-clave="${esc(p.clave)}" data-on-click="agregarSugerida(this.dataset.clave)">Agregar</button></td>
         </tr>`).join('')}</tbody></table>` : ''}
     ${bloqueCursos ? `<h2 class="section-title" style="margin-top:32px;">Mis cursos en otras plataformas</h2>${bloqueCursos}` : ''}
-  `;
+  ` + renderPortalesInstitucionales();
 }
 
 async function cargarIntegraciones() {

@@ -39,7 +39,7 @@ compose_valido() {
     echo "   docker no instalado; se omite"
     return 0
   fi
-  DB_PASSWORD=x CLERK_PUBLISHABLE_KEY=x CLERK_SECRET_KEY=x ORIGEN_PUBLICO=x CLAVE_CIFRADO=x docker compose config -q
+  DB_PASSWORD=x APP_DB_PASSWORD=x CLERK_PUBLISHABLE_KEY=x CLERK_SECRET_KEY=x ORIGEN_PUBLICO=x CLAVE_CIFRADO=x docker compose config -q
 }
 
 base_de_pruebas_viva() {
