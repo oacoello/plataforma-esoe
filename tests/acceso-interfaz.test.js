@@ -48,9 +48,9 @@ test('ambiente: los controles se ajustan a pantalla y texto sin quedar cubiertos
         const contexto = `${viewport.width}x${viewport.height}, ${tamano}`;
         assert.ok(limites.x >= 0 && limites.x + limites.width <= viewport.width + 1, contexto);
         const posicion = await barra.evaluate((elemento) => globalThis.getComputedStyle(elemento).position);
-        assert.equal(posicion, 'static', contexto);
-        const titulo = await pagina.locator('.titulo-grande').boundingBox();
-        assert.ok(limites.y + limites.height <= titulo.y, contexto);
+        assert.equal(posicion, 'fixed', contexto);
+        assert.ok(limites.y >= 0 && limites.y + limites.height <= viewport.height, contexto);
+        assert.equal(await barra.evaluate((elemento) => elemento.previousElementSibling.classList.contains('login-footer-meta')), true);
         for (const boton of await barra.locator('button:visible').all()) {
           const caja = await boton.boundingBox();
           assert.ok(caja.x >= limites.x && caja.x + caja.width <= limites.x + limites.width + 1, contexto);
@@ -85,15 +85,15 @@ test('identidad visual: las marcas permanecen sobre el campus sin invadir la cab
         await barra.locator(`[data-tamano-texto="${tamano}"]`).click();
         await pagina.evaluate(() => globalThis.scrollTo(0, 0));
         const cabecera = await pagina.locator('.login-brand-panel').boundingBox();
-        const campus = await pagina.locator('.escena').boundingBox();
-        assert.ok(noSeCruzan(cabecera, campus), `${width}: cabecera y campus`);
+
         assert.ok(noSeCruzan(await pagina.locator('.brand-crest').boundingBox(), await pagina.locator('.login-brand-panel .reloj').boundingBox()), `${width}: marca y reloj`);
-        assert.equal(await pagina.locator('.brand-title-group .rotulo').isVisible(), true);
+        assert.equal(await pagina.locator('.brand-title-group .marca-nombre').isVisible(), true);
         const puntos = pagina.locator('.escena-plano > .escena-puntos > .punto');
         assert.equal(await puntos.count(), 8);
         for (const punto of await puntos.all()) {
           assert.equal(await punto.evaluate((elemento) => globalThis.getComputedStyle(elemento).position), 'absolute');
           assert.equal(await punto.locator('.punto-n').isVisible(), true);
+          assert.ok(noSeCruzan(cabecera, await punto.boundingBox()), `${width}: marca y cabecera`);
         }
         assert.equal(await pagina.locator('.escena > .escena-puntos').count(), 0);
       }

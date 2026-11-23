@@ -250,6 +250,21 @@ function prepararCampus3D() {
   return true;
 }
 
+function ajustarLimitesDelAcceso() {
+  if (typeof ResizeObserver === 'undefined') return;
+  const cabecera = document.querySelector('.login-brand-panel');
+  const escena = document.querySelector('.escena');
+  const barra = document.querySelector('.barra-ambiente');
+  const ajustar = () => {
+    if (cabecera && escena) escena.style.setProperty('--reserva-cabecera', `${cabecera.offsetHeight + 12}px`);
+    if (barra) document.documentElement.style.setProperty('--alto-ambiente', `${barra.offsetHeight}px`);
+  };
+  const observador = new ResizeObserver(ajustar);
+  if (cabecera) observador.observe(cabecera);
+  if (barra) observador.observe(barra);
+  ajustar();
+}
+
 (function iniciarAmbiente() {
   let noche = null;
   try { noche = localStorage.getItem(CLAVE_NOCHE); } catch {}
@@ -263,4 +278,5 @@ function prepararCampus3D() {
   prepararParalaje();
   prepararVistas();
   prepararCampus3D();
+  ajustarLimitesDelAcceso();
 })();

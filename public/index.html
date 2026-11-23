@@ -64,17 +64,6 @@
       </header>
 
       <main id="acceso-principal" class="login-form-panel" aria-labelledby="titulo-acceso">
-        <div class="barra-ambiente" role="toolbar" aria-label="Ambiente">
-          <button type="button" class="ambiente-btn" data-atlas aria-pressed="true" data-on-click="alternarPlano()"><span class="ambiente-ico" aria-hidden="true">▦</span>Plano</button>
-          <button type="button" class="ambiente-btn" data-sonido aria-pressed="false" data-on-click="alternarSonido()"><span class="ambiente-ico" aria-hidden="true">♪</span>Sonido</button>
-          <button type="button" class="ambiente-btn" data-noche aria-pressed="false" data-on-click="alternarNoche()"><span class="ambiente-ico" aria-hidden="true">☾</span>Noche</button>
-          <div class="control-texto" role="group" aria-label="Tamaño del texto">
-            <button type="button" data-tamano-texto="normal" aria-pressed="true" data-on-click="cambiarTamanoTexto('normal')">A<span class="solo-lectores"> normal</span></button>
-            <button type="button" data-tamano-texto="grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('grande')">A+<span class="solo-lectores"> grande</span></button>
-            <button type="button" data-tamano-texto="muy-grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('muy-grande')">A++<span class="solo-lectores"> muy grande</span></button>
-          </div>
-        </div>
-
         <p class="rotulo rotulo-guion">Sistema de gestión académica</p>
         <h1 class="titulo-grande"><span class="linea"><span>Gestión académica</span></span> <em class="linea"><span>y administrativa.</span></em></h1>
         <p class="lema">Clases, asistencia y calificaciones.<br>Todo en un solo lugar.</p>
@@ -110,6 +99,17 @@
 
         <p class="login-footer-meta rotulo">ESOE &nbsp;/&nbsp; Plataforma de gestión académica
           <button type="button" class="ver-presentacion rotulo" data-on-click="verIntro()">▶ Ver presentación</button></p>
+
+        <div class="barra-ambiente" role="toolbar" aria-label="Ambiente">
+          <button type="button" class="ambiente-btn" data-atlas aria-pressed="true" data-on-click="alternarPlano()"><span class="ambiente-ico" aria-hidden="true">▦</span>Plano</button>
+          <button type="button" class="ambiente-btn" data-sonido aria-pressed="false" data-on-click="alternarSonido()"><span class="ambiente-ico" aria-hidden="true">♪</span>Sonido</button>
+          <button type="button" class="ambiente-btn" data-noche aria-pressed="false" data-on-click="alternarNoche()"><span class="ambiente-ico" aria-hidden="true">☾</span>Noche</button>
+          <div class="control-texto" role="group" aria-label="Tamaño del texto">
+            <button type="button" data-tamano-texto="normal" aria-pressed="true" data-on-click="cambiarTamanoTexto('normal')">A<span class="solo-lectores"> normal</span></button>
+            <button type="button" data-tamano-texto="grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('grande')">A+<span class="solo-lectores"> grande</span></button>
+            <button type="button" data-tamano-texto="muy-grande" aria-pressed="false" data-on-click="cambiarTamanoTexto('muy-grande')">A++<span class="solo-lectores"> muy grande</span></button>
+          </div>
+        </div>
 
       </main>
     </div>
