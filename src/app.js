@@ -13,6 +13,7 @@ const { crearRutasEstructura } = require('./academico/estructura');
 const { crearRutasExpedientes } = require('./academico/expedientes');
 const { crearRutasDeClases } = require('./academico/clases');
 const { crearRutasInstituciones } = require('./academico/instituciones');
+const { crearRutasDeVoz } = require('./voz/rutas');
 
 const DIRECTORIO_PUBLICO = path.join(__dirname, '..', 'public');
 
@@ -100,6 +101,9 @@ function crearApp(config, dependencias = {}) {
       integraciones: Boolean(db && config.integraciones.claveCifrado)
     });
   });
+
+  // El asistente telefonico entra con su llave de servicio, no con sesion de Clerk.
+  app.use('/api/voz', crearRutasDeVoz({ config, db }));
 
   app.use('/api', auth.middleware);
 
