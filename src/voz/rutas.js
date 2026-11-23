@@ -1,16 +1,5 @@
 'use strict';
 
-/* Consultas del asistente telefonico (Voicenter).
-
-   El asistente no tiene sesion de Clerk: entra con una llave de servicio
-   (VOZ_TOKEN) y primero verifica a quien llama. Si la verificacion es correcta
-   entrega una sesion corta, firmada, que solo sirve para leer los datos de esa
-   persona en su institucion: notas, asistencia y horario. Nada se escribe.
-
-   - Sin VOZ_TOKEN las rutas responden 404, como si no existieran.
-   - Una verificacion fallida responde igual sin importar que dato fallo, para
-     no revelar si un codigo o un DNI existe. */
-
 const crypto = require('node:crypto');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
@@ -138,7 +127,6 @@ function crearRutasDeVoz({ config, db }) {
     }
   });
 
-  // Las consultas exigen una sesion emitida por una verificacion de este servidor.
   const exigirSesionDeVoz = (tipos) => (req, res, next) => {
     const sesion = firmante.leer(req.body && req.body.sesion);
     if (!sesion || !tipos.includes(sesion.tipo)) {
@@ -219,7 +207,6 @@ function crearRutasDeVoz({ config, db }) {
           ORDER BY m.nombre`,
         [id, inst]
       );
-      // El horario es texto libre ("Lunes y miercoles 08:00"); el dia se filtra sobre ese texto.
       const clases = dia ? rows.filter((r) => sinAcentos(r.horario).includes(dia)) : rows;
       res.json({ clases });
     } catch (error) {

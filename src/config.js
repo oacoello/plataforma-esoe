@@ -19,7 +19,6 @@ function leerBooleano(valor) {
   return ['1', 'true', 'si', 'yes'].includes(String(valor || '').trim().toLowerCase());
 }
 
-// La llave publica de Clerk codifica el dominio de su API de navegador: pk_(test|live)_base64("dominio$").
 function dominioDeClerk(llavePublica) {
   const partes = /^pk_(test|live)_(.+)$/.exec(llavePublica || '');
   if (!partes) return '';
@@ -48,22 +47,17 @@ function cargarConfig(env = process.env) {
       habilitado: Boolean(llavePublica && llaveSecreta),
       llavePublica,
       llaveSecreta,
-      // Llave publica PEM de la instancia: permite verificar sesiones sin llamar a Clerk.
       llaveJwt: (env.CLERK_JWT_KEY || '').replace(/\\n/g, '\n').trim(),
       dominio: dominioDeClerk(llavePublica),
-      // Origenes desde los que se aceptan sesiones (la URL publica de la plataforma).
       origenesAutorizados: leerLista(env.ORIGEN_PUBLICO)
     },
     integraciones: {
       claveCifrado: (env.CLAVE_CIFRADO || '').trim(),
-      // Permite conectar con plataformas en la red interna o por HTTP (un Moodle propio en la LAN).
       permitirRedPrivada: leerBooleano(env.INTEGRACIONES_RED_PRIVADA),
       tiempoMaximoMs: leerEntero(env.INTEGRACIONES_TIEMPO_MS, 10000)
     },
     voz: {
-      // Llave de servicio del asistente telefonico (Voicenter). Vacia = rutas /api/voz apagadas.
       token: (env.VOZ_TOKEN || '').trim(),
-      // Verificaciones de identidad permitidas por ventana y por origen.
       limiteVerificacion: leerEntero(env.VOZ_LIMITE_VERIFICACION, 120)
     }
   };

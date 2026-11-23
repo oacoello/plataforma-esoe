@@ -1,9 +1,5 @@
 'use strict';
 
-/* Asistente telefonico (Voicenter). Entra con su llave de servicio, verifica a
-   quien llama y solo entonces lee notas, asistencia y horario de esa persona,
-   en su propia institucion. */
-
 const crypto = require('node:crypto');
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -104,7 +100,6 @@ test('voz: una verificacion fallida no revela que dato fallo', sinBase, async ()
 });
 
 test('voz: el mismo codigo en otra institucion es otra persona', sinBase, async () => {
-  // INFOP tiene un A-26001 propio, con otro DNI: el DNI de la estudiante de la ESOE no le sirve.
   const r = await voz('/verificar-estudiante', { institucion: 'infop', codigoAlumno: 'A-26001', dni: '0501-2004-00001' });
   assert.equal(r.cuerpo.verificado, false);
   const propia = await voz('/verificar-estudiante', { institucion: 'infop', codigoAlumno: 'A-26001', dni: '0501-2004-00002' });
@@ -116,7 +111,6 @@ test('voz: sin sesion verificada no hay notas, asistencia ni horario', sinBase, 
     assert.equal((await voz(ruta, {})).status, 403);
     assert.equal((await voz(ruta, { sesion: 'inventada.firma' })).status, 403);
   }
-  // Una sesion firmada con otra llave no sirve.
   const ajena = crearFirmante('otra-llave-de-servicio-con-32-caracteres').emitir({ tipo: 'ESTUDIANTE', id: d.esoe.estudiante.id, inst: 'x' });
   assert.equal((await voz('/notas', { sesion: ajena })).status, 403);
 });
