@@ -40,6 +40,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/configure-pages@v5
+      - name: Configuracion publica de inicio de sesion
+        env:
+          CLERK_LLAVE_PUBLICA: pk_test_ZmFpci1sYW1wcmV5LTg3MDkuY2xlcmsuYWNjb3VudHMuZGV2JA
+          CLERK_DOMINIO: fair-lamprey-8709.clerk.accounts.dev
+        run: |
+          printf '{"autenticacion":{"proveedor":"clerk","llavePublica":"%s","dominio":"%s"},"integraciones":false}\n' "$CLERK_LLAVE_PUBLICA" "$CLERK_DOMINIO" > public/config-publica.json
+          cat public/config-publica.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public

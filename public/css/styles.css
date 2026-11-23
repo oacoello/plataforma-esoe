@@ -147,6 +147,13 @@
   --sidebar-width: 256px;
   --topbar-height: 64px;
   --radius: 4px;
+  --acceso-brillo: rgba(255, 255, 255, 0.14);
+  --acceso-brillo-fin: rgba(255, 255, 255, 0);
+  --acceso-borde-luz: rgba(255, 255, 255, 0.18);
+  --acceso-borde-luz-fuerte: rgba(255, 255, 255, 0.22);
+  --acceso-sombra-boton: rgba(10, 42, 53, 0.28);
+  --acceso-sombra-boton-fuerte: rgba(10, 42, 53, 0.32);
+  --acceso-campo-noche: rgba(255, 255, 255, 0.08);
   --vidrio-claro: rgba(255, 255, 255, 0.58);
   --vidrio-claro-borde: rgba(255, 255, 255, 0.85);
   --vidrio-claro-tenue: rgba(15, 42, 51, 0.06);
@@ -690,7 +697,7 @@ select.form-control { width: auto; min-width: 180px; max-width: 100%; }
 .nav-item .ico .acento, .btn-choco .ico .acento { fill: var(--decoracion-viva); }
 .nav-item.active .ico .acento { fill: var(--sobre-accion); }
 
-.login-aviso { border-left: 3px solid var(--decoracion); background: var(--superficie); padding: 10px 12px; margin-bottom: 16px; font-size: var(--fs-base); }
+.login-aviso { background: var(--vidrio); border: 1px solid var(--vidrio-borde); box-shadow: var(--vidrio-sombra); -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6); border-radius: 16px; padding: 12px 16px; margin-bottom: 16px; font-size: var(--fs-base); color: var(--texto); }
 
 .solo-lectores {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -706,7 +713,23 @@ select.form-control { width: auto; min-width: 180px; max-width: 100%; }
 .ayuda-acceso summary { cursor: pointer; padding: 12px 0; font-weight: 600; color: var(--texto); }
 .ayuda-acceso summary:focus-visible { outline: 2px solid var(--estructura); outline-offset: 2px; }
 .ayuda-acceso details p { padding: 0 0 14px; color: var(--piedra); max-width: 65ch; }
-#login-clerk { display: flex; justify-content: center; }
+#login-clerk { display: flex; justify-content: flex-start; width: 100%; max-width: 420px; }
+#login-clerk > * { flex: 1 1 auto; }
+#login-clerk .acceso-raiz, #login-clerk .acceso-tarjeta { width: 100% !important; max-width: 420px !important; }
+#login-clerk .acceso-tarjeta { width: 100%; background: var(--vidrio); border: 1px solid var(--vidrio-borde); box-shadow: var(--vidrio-sombra); -webkit-backdrop-filter: blur(22px) saturate(1.7); backdrop-filter: blur(22px) saturate(1.7); border-radius: 24px; overflow: hidden; }
+#login-clerk .acceso-tarjeta-interior { background: transparent; box-shadow: none; border: 0; padding: 28px 28px 20px; gap: 20px; }
+#login-clerk .acceso-oculto { display: none !important; }
+#login-clerk .acceso-etiqueta { font-size: var(--fs-sm); font-weight: 600; color: var(--texto); }
+#login-clerk .acceso-campo { min-height: 48px; border-radius: 14px; border: 1px solid var(--linea); background: var(--vidrio-pulgar); box-shadow: inset 0 1px 2px var(--vidrio-tenue); font-size: var(--fs-base); color: var(--texto); }
+#login-clerk .acceso-campo:focus { outline: 2px solid var(--marca-1); outline-offset: 1px; }
+#login-clerk .acceso-boton { min-height: 50px; border-radius: 999px; border: 0; background: linear-gradient(180deg, var(--acceso-brillo) 0%, var(--acceso-brillo-fin) 60%), var(--estructura); color: var(--sobre-estructura); font-size: var(--fs-base); font-weight: 700; letter-spacing: .01em; text-transform: none; box-shadow: 0 8px 22px var(--acceso-sombra-boton), inset 0 1px 0 var(--acceso-borde-luz); transition: transform .18s var(--curva-entrada), box-shadow .18s var(--curva-entrada); }
+#login-clerk .acceso-boton:hover { transform: translateY(-1px); box-shadow: 0 12px 28px var(--acceso-sombra-boton-fuerte), inset 0 1px 0 var(--acceso-borde-luz-fuerte); }
+#login-clerk .acceso-boton:active { transform: translateY(0) scale(.985); }
+#login-clerk .acceso-pie { background: transparent; border-top: 1px solid var(--vidrio-tenue); }
+#login-clerk .acceso-enlace { color: var(--enlace); font-weight: 600; }
+html[data-noche] #login-clerk .acceso-campo { background: var(--acceso-campo-noche); color: var(--texto); }
+html[data-noche] #login-clerk .acceso-boton { background: var(--marca-2); color: var(--sobre-accion); }
+@media (prefers-reduced-motion: reduce) { #login-clerk .acceso-boton { transition: none; } }
 #login-salir { margin-top: 12px; }
 .section-title { font-family: var(--font-display); font-size: var(--fs-base); text-transform: uppercase; letter-spacing: .04em; margin: 24px 0 10px; color: var(--titulo); }
 

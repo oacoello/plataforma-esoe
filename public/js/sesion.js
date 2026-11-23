@@ -1,4 +1,35 @@
-const sesionReal = { activa: false, clerk: null, integraciones: false, nombre: '', correo: '' };
+const sesionReal = { activa: false, clerk: null, integraciones: false, sinServidor: false, nombre: '', correo: '' };
+
+const APARIENCIA_ACCESO = {
+  variables: {
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+    fontFamilyButtons: "'DM Sans', system-ui, sans-serif",
+    borderRadius: '14px',
+    colorPrimary: '#0A2A35',
+    colorText: '#0F2A33',
+    colorTextSecondary: '#41606B',
+    colorInputBackground: 'rgba(255, 255, 255, 0.72)',
+    colorInputText: '#0F2A33',
+    colorDanger: '#B8440C'
+  },
+  layout: { socialButtonsPlacement: 'bottom', socialButtonsVariant: 'blockButton', showOptionalFields: false },
+  elements: {
+    rootBox: 'acceso-raiz',
+    cardBox: 'acceso-tarjeta',
+    card: 'acceso-tarjeta-interior',
+    header: 'acceso-oculto',
+    socialButtonsRoot: 'acceso-oculto',
+    dividerRow: 'acceso-oculto',
+    footer: 'acceso-pie',
+    footerAction: 'acceso-oculto',
+    formFieldLabel: 'acceso-etiqueta',
+    formFieldInput: 'acceso-campo',
+    formButtonPrimary: 'acceso-boton',
+    identityPreview: 'acceso-identidad',
+    formFieldAction: 'acceso-enlace',
+    footerActionLink: 'acceso-enlace'
+  }
+};
 
 function esc(valor) {
   return String(valor === null || valor === undefined ? '' : valor).replace(/[&<>"']/g, (c) => (
@@ -59,7 +90,9 @@ async function entrarConSesionReal() {
     identidad = await api('/sesion');
   } catch (error) {
     document.getElementById('login-clerk').innerHTML = '';
-    mostrarAvisoDeAcceso(error.estado === 403
+    mostrarAvisoDeAcceso(sesionReal.sinServidor
+      ? 'Sesión iniciada. Este sitio no tiene acceso a los datos académicos: entre por la dirección institucional de la plataforma.'
+      : error.estado === 403
       ? 'Su cuenta todavía no tiene un rol asignado. Solicítelo a la administración.'
       : 'No se pudo validar la sesión. Intente de nuevo.');
     const salir = document.getElementById('login-salir');
@@ -96,13 +129,14 @@ async function iniciarSesionReal(configuracion) {
   sesionReal.activa = true;
   sesionReal.clerk = window.Clerk;
   sesionReal.integraciones = Boolean(configuracion.integraciones);
+  sesionReal.sinServidor = Boolean(configuracion.sinServidor);
 
   document.getElementById('login-estado').classList.add('hidden');
 
   if (sesionReal.clerk.isSignedIn) {
     await entrarConSesionReal();
   } else {
-    sesionReal.clerk.mountSignIn(document.getElementById('login-clerk'));
+    sesionReal.clerk.mountSignIn(document.getElementById('login-clerk'), { appearance: APARIENCIA_ACCESO });
     sesionReal.clerk.addListener(({ session }) => {
       if (session && !appState.authenticated) entrarConSesionReal();
     });
@@ -114,6 +148,23 @@ async function cerrarSesionReal() {
   window.location.reload();
 }
 
+async function leerJson(ruta) {
+  try {
+    const respuesta = await fetch(ruta, { headers: { Accept: 'application/json' } });
+    if (!respuesta.ok) return null;
+    return await respuesta.json();
+  } catch {
+    return null;
+  }
+}
+
+async function leerConfiguracion() {
+  const delServidor = await leerJson('/api/config');
+  if (delServidor) return delServidor;
+  const publica = await leerJson('config-publica.json');
+  return publica ? { ...publica, sinServidor: true } : null;
+}
+
 async function iniciarPlataforma() {
   const estado = document.getElementById('login-estado');
   const noDisponible = () => {
@@ -121,15 +172,8 @@ async function iniciarPlataforma() {
     estado.querySelector('p').textContent = 'El acceso institucional no está disponible en este sitio. Contacte con la administración o vuelva a intentarlo más tarde. Por seguridad, el acceso requiere verificar su cuenta.';
   };
   if (window.location.protocol === 'file:') return noDisponible();
-  let configuracion;
-  try {
-    const respuesta = await fetch('/api/config', { headers: { Accept: 'application/json' } });
-    if (!respuesta.ok) return noDisponible();
-    configuracion = await respuesta.json();
-  } catch {
-    return noDisponible();
-  }
-  if (!configuracion.autenticacion) return noDisponible();
+  const configuracion = await leerConfiguracion();
+  if (!configuracion || !configuracion.autenticacion) return noDisponible();
 
   estado.classList.add('hidden');
   try {
