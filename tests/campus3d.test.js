@@ -4,10 +4,11 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
 const RAIZ = path.join(__dirname, '..');
 const FUENTE = path.join(RAIZ, 'interfaz', 'campus3d');
-const plano = () => import(path.join(FUENTE, 'plano.js'));
+const plano = () => import(pathToFileURL(path.join(FUENTE, 'plano.js')).href);
 
 test('campus3d: el plano es el mismo en cada visita', async () => {
   const { contorno, azar, arboles } = await plano();
