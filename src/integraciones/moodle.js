@@ -101,7 +101,26 @@ function crearClienteMoodle(opciones = {}) {
     }));
   }
 
-  return { configuracionPublica, obtenerToken, infoDelSitio, cursosDelUsuario };
+  async function buscarUsuarioExacto(urlBase, tokenServicio, campo, valor) {
+    const buscado = String(valor || '').trim();
+    if (!buscado) return null;
+    const respuesta = await llamar(urlBase, tokenServicio, 'core_user_get_users_by_field', { field: campo, 'values[0]': buscado });
+    const lista = Array.isArray(respuesta) ? respuesta : [];
+    const iguales = lista.filter((u) => Number.isInteger(u.id)
+      && String(campo === 'email' ? u.email : u.idnumber || '').trim().toLowerCase() === buscado.toLowerCase());
+    if (iguales.length !== 1) return null;
+    return { usuarioId: iguales[0].id, nombreCompleto: String(iguales[0].fullname || '') };
+  }
+
+  async function detectarInscripcion(urlBase, tokenServicio, { correo, identidad }) {
+    const porCorreo = await buscarUsuarioExacto(urlBase, tokenServicio, 'email', correo);
+    if (porCorreo) return { ...porCorreo, coincidencia: 'CORREO' };
+    const porIdentidad = await buscarUsuarioExacto(urlBase, tokenServicio, 'idnumber', identidad);
+    if (porIdentidad) return { ...porIdentidad, coincidencia: 'IDENTIDAD' };
+    return null;
+  }
+
+  return { configuracionPublica, obtenerToken, infoDelSitio, cursosDelUsuario, detectarInscripcion };
 }
 
 module.exports = { crearClienteMoodle, ErrorDeMoodle, ErrorDeRed };

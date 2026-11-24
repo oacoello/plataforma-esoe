@@ -95,6 +95,12 @@ async function crearMoodleFalso(opciones = {}) {
     serviciosWeb: opciones.serviciosWeb !== false,
     usuarios: { 'alumno.prueba': { clave: 'Clave-Correcta-1', id: 42, nombre: 'Alumno De Prueba', token: 'tok-alumno-42' } },
     tokensRevocados: new Set(),
+    tokenServicio: 'servicioInstitucional0123456789',
+    directorio: [
+      { id: 42, fullname: 'Alumno De Prueba', email: 'alumno@institucion.example', idnumber: '0801199900001' },
+      { id: 77, fullname: 'Homonimo Uno', email: 'repetido@institucion.example', idnumber: '' },
+      { id: 78, fullname: 'Homonimo Dos', email: 'repetido@institucion.example', idnumber: '' }
+    ],
     peticiones: [],
     caido: false
   };
@@ -131,6 +137,25 @@ async function crearMoodleFalso(opciones = {}) {
 
       if (url.pathname === '/webservice/rest/server.php') {
         const token = campos.get('wstoken');
+        if (token === estado.tokenServicio) {
+          switch (campos.get('wsfunction')) {
+            case 'core_webservice_get_site_info':
+              return responder({ userid: 2, fullname: 'Servicio', sitename: 'Moodle de pruebas', release: '4.5' });
+            case 'core_user_get_users_by_field': {
+              const campo = campos.get('field');
+              const valor = String(campos.get('values[0]') || '').toLowerCase();
+              return responder(estado.directorio.filter((u) => String(u[campo] || '').toLowerCase() === valor));
+            }
+            case 'core_enrol_get_users_courses':
+              return responder(campos.get('userid') === '42'
+                ? [{ id: 7, fullname: 'Electricidad Básica', shortname: 'ELEC-1', progress: 62.4, completed: false, startdate: 1790000000, enddate: 0 }]
+                : []);
+            case 'gradereport_overview_get_course_grades':
+              return responder({ grades: [] });
+            default:
+              return responder({ exception: 'webservice_access_exception', errorcode: 'accessexception', message: 'Sin permiso' });
+          }
+        }
         const usuario = Object.values(estado.usuarios).find((u) => u.token === token);
         if (!usuario || estado.tokensRevocados.has(token)) {
           return responder({ exception: 'moodle_exception', errorcode: 'invalidtoken', message: 'Token invalido' });

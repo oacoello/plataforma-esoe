@@ -96,7 +96,8 @@ test('migraciones: separar plataformas por institucion conserva plataformas y cu
        VALUES ($1, 'user_anterior', 'cifrado-anterior', 42, 'Cuenta anterior') RETURNING *`, [plataforma.id]);
     const resultado = await migrar({ cliente: c });
     assert.ok(resultado.aplicadas.some((nombre) => String(nombre).includes('0006')));
-    assert.deepEqual((await c.query('SELECT * FROM plataformas_externas WHERE id = $1', [plataforma.id])).rows, [plataforma]);
+    assert.deepEqual((await c.query('SELECT * FROM plataformas_externas WHERE id = $1', [plataforma.id])).rows,
+      [{ ...plataforma, token_servicio_cifrado: null, servicio_configurado_en: null }]);
     assert.deepEqual((await c.query('SELECT * FROM cuentas_externas WHERE id = $1', [cuenta.id])).rows, [cuenta]);
     await c.query(
       `INSERT INTO plataformas_externas (nombre, tipo, url_base, creada_por, institucion_id)

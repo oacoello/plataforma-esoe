@@ -149,7 +149,7 @@ function crearApp(config, dependencias = {}) {
   });
 
   const permisos = db ? crearPermisos(db) : null;
-  app.use('/api/integraciones', crearRutasDeIntegraciones({ config, auth, db, permisos, crearAlmacenLimites }));
+  app.use('/api/integraciones', crearRutasDeIntegraciones({ config, auth, db, permisos, crearAlmacenLimites, correoVerificado: dependencias.correoVerificado }));
 
   app.use('/api', crearRutasAcademicas({ auth, db, permisos }));
   app.use('/api', crearRutasEstructura({ auth, db, permisos }));

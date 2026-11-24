@@ -97,6 +97,8 @@ function residuo(expresion) {
   s = quitarLlamada(s, 'accionesRegistro');
   s = quitarLlamada(s, 'renderCatalogoMaterias');
   s = quitarLlamada(s, 'insigniaDePortal');
+  s = quitarLlamada(s, 'detalleDeInscripcion');
+  s = quitarLlamada(s, 'renderMisPlataformas');
   s = s.replace(/`[\s\S]*?`/g, '``');
   s = s.replace(/'(?:[^'\\]|\\.)*'/g, "''");
   s = s.replace(/"(?:[^"\\]|\\.)*"/g, '""');

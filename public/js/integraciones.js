@@ -1,4 +1,4 @@
-const integraciones = { cargando: false, error: '', plataformas: [], cursos: [], catalogo: [] };
+const integraciones = { cargando: false, error: '', plataformas: [], cursos: [], catalogo: [], mias: [] };
 
 const estadoPortales = { cargado: false, cargando: false, porClave: {} };
 
@@ -78,7 +78,8 @@ function pintarIntegraciones() {
         ${p.vinculada
           ? `<button type="button" class="btn btn-outline btn-sm" data-id="${esc(p.id)}" data-on-click="desvincularCuentaExterna(this.dataset.id)">Desvincular</button>`
           : `<button type="button" class="btn btn-primary btn-sm" data-id="${esc(p.id)}" data-on-click="abrirVinculacion(this.dataset.id)">Vincular mi cuenta</button>`}
-        ${esAdmin ? `<button type="button" class="btn btn-outline btn-sm" data-id="${esc(p.id)}" data-on-click="probarPlataforma(this.dataset.id)">Probar</button>
+        ${esAdmin ? `<button type="button" class="btn btn-outline btn-sm" data-id="${esc(p.id)}" data-on-click="abrirPermisoInstitucional(this.dataset.id)">${p.detectable ? 'Permiso activo' : 'Permiso institucional'}</button>
+          <button type="button" class="btn btn-outline btn-sm" data-id="${esc(p.id)}" data-on-click="probarPlataforma(this.dataset.id)">Probar</button>
           <button type="button" class="btn btn-outline btn-sm" data-id="${esc(p.id)}" data-on-click="eliminarPlataforma(this.dataset.id)">Eliminar</button>` : ''}
       </td>
     </tr>`).join('');
@@ -108,7 +109,7 @@ function pintarIntegraciones() {
       </table>`;
   }).join('');
 
-  contenedor.innerHTML = `
+  contenedor.innerHTML = renderMisPlataformas() + `
     <div class="toolbar">
       <p>Vincule su cuenta de otras plataformas para ver aquí sus cursos, su avance y sus calificaciones.</p>
       ${esAdmin ? `<button type="button" class="btn btn-primary" data-on-click="abrirNuevaPlataforma()">${ICONS.plus}<span>Agregar plataforma</span></button>` : ''}
@@ -136,11 +137,13 @@ async function cargarIntegraciones() {
   pintarIntegraciones();
   try {
     const esAdmin = appState.currentRole === 'ADMIN';
-    const [plataformas, cursos, catalogo] = await Promise.all([
+    const [plataformas, cursos, catalogo, mias] = await Promise.all([
       api('/integraciones/plataformas'),
       api('/integraciones/mis-cursos'),
-      esAdmin ? api('/integraciones/catalogo') : Promise.resolve({ plataformas: [] })
+      esAdmin ? api('/integraciones/catalogo') : Promise.resolve({ plataformas: [] }),
+      api('/integraciones/mis-plataformas').catch(() => ({ plataformas: [] }))
     ]);
+    integraciones.mias = mias.plataformas;
     integraciones.plataformas = plataformas.plataformas;
     integraciones.cursos = cursos.plataformas;
     integraciones.catalogo = catalogo.plataformas;
@@ -204,8 +207,92 @@ async function probarPlataforma(id) {
 }
 
 function eliminarPlataforma(id) {
-  if (!window.confirm('Se eliminará la plataforma y las cuentas que los usuarios hayan vinculado a ella. ¿Continuar?')) return;
+  openModal('Eliminar plataforma', `
+    <p class="confirmacion-borrado">Se eliminará la plataforma y las cuentas que los usuarios hayan vinculado a ella. Esta acción no se puede deshacer.</p>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+      <button type="button" class="btn btn-outline" data-on-click="closeModal()">Cancelar</button>
+      <button type="button" class="btn btn-primary btn-peligro-lleno" data-id="${esc(id)}" data-on-click="confirmarEliminarPlataforma(this.dataset.id)">Eliminar plataforma</button>
+    </div>`);
+}
+
+function confirmarEliminarPlataforma(id) {
   operarIntegracion(() => api(`/integraciones/plataformas/${encodeURIComponent(id)}`, { metodo: 'DELETE' }), 'Plataforma eliminada');
+}
+
+const ESTADOS_DE_INSCRIPCION = {
+  VINCULADA: ['badge-olive', 'Vinculada con su cuenta'],
+  INSCRITO: ['badge-olive', 'Inscrito'],
+  NO_INSCRITO: ['badge-neutral', 'No inscrito'],
+  SIN_PERMISO: ['badge-neutral', 'Sin comprobar'],
+  SIN_DATOS: ['badge-neutral', 'Sin datos para comprobar'],
+  NO_DISPONIBLE: ['badge-neutral', 'La plataforma no respondió']
+};
+
+function detalleDeInscripcion(p) {
+  if (p.estado === 'VINCULADA') return `Cuenta: ${esc(p.cuenta || '')}`;
+  if (p.estado === 'INSCRITO') return `Se encontró su cuenta ${esc(p.cuenta || '')} por ${p.coincidencia === 'IDENTIDAD' ? 'su número de identidad' : 'su correo verificado'}; sus cursos aparecen abajo.`;
+  if (p.estado === 'NO_INSCRITO') return 'Sus datos no coinciden con ninguna cuenta de esta plataforma.';
+  if (p.estado === 'SIN_PERMISO') return 'La institución de esta plataforma aún no entregó el permiso para comprobar inscripciones. Puede vincular su cuenta a mano.';
+  if (p.estado === 'SIN_DATOS') return 'Su cuenta necesita un correo verificado o un expediente con número de identidad.';
+  return 'Vuelva a comprobar más tarde.';
+}
+
+function renderMisPlataformas() {
+  if (!integraciones.mias.length) return '';
+  const filas = integraciones.mias.map((p) => {
+    const [clase, etiqueta] = ESTADOS_DE_INSCRIPCION[p.estado] || ESTADOS_DE_INSCRIPCION.NO_DISPONIBLE;
+    return `<tr><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.urlBase)}</small></td>
+      <td><span class="badge ${clase}">${esc(etiqueta)}</span></td>
+      <td><small>${detalleDeInscripcion(p)}</small></td></tr>`;
+  }).join('');
+  return `<section class="mis-plataformas" aria-labelledby="mis-plataformas-titulo">
+      <div class="toolbar"><h2 id="mis-plataformas-titulo" class="section-title" style="margin:0;">Mis plataformas</h2>
+        <button type="button" class="btn btn-outline btn-sm" data-on-click="volverAComprobarInscripciones()">Volver a comprobar</button></div>
+      <table class="data-table"><thead><tr><th>Plataforma</th><th>Estado</th><th>Detalle</th></tr></thead><tbody>${filas}</tbody></table>
+    </section>`;
+}
+
+async function volverAComprobarInscripciones() {
+  try {
+    const { plataformas } = await api('/integraciones/mis-plataformas?actualizar=1');
+    integraciones.mias = plataformas;
+    const cursos = await api('/integraciones/mis-cursos');
+    integraciones.cursos = cursos.plataformas;
+    pintarIntegraciones();
+    showToast('Inscripciones comprobadas');
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+function abrirPermisoInstitucional(id) {
+  const plataforma = integraciones.plataformas.find((p) => p.id === id);
+  if (!plataforma) return;
+  openModal(`Permiso institucional — ${plataforma.nombre}`, `
+    <form data-on-submit="guardarPermisoInstitucional(event)">
+      <input type="hidden" id="permiso-plataforma" value="${esc(id)}">
+      <p>La administración de esta plataforma Moodle debe crear un servicio web con las funciones <strong>core_user_get_users_by_field</strong>, <strong>core_enrol_get_users_courses</strong> y <strong>core_webservice_get_site_info</strong>, y entregar su token. Con él, la plataforma reconoce a cada usuario solo si su correo verificado o su número de identidad coinciden con una única cuenta.</p>
+      <div class="form-group">
+        <label class="form-label" for="permiso-token">Token de servicio</label>
+        <input type="password" id="permiso-token" class="form-control" autocomplete="off" required minlength="16" maxlength="128">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+        ${plataforma.detectable ? `<button type="button" class="btn btn-outline btn-peligro" data-id="${esc(id)}" data-on-click="quitarPermisoInstitucional(this.dataset.id)">Quitar permiso</button>` : ''}
+        <button type="button" class="btn btn-outline" data-on-click="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar permiso</button>
+      </div>
+    </form>`);
+}
+
+function guardarPermisoInstitucional(evento) {
+  evento.preventDefault();
+  const id = document.getElementById('permiso-plataforma').value;
+  const token = document.getElementById('permiso-token').value.trim();
+  operarIntegracion(() => api(`/integraciones/plataformas/${encodeURIComponent(id)}/servicio`, { metodo: 'PUT', cuerpo: { token } }), 'Permiso guardado: las inscripciones se comprobarán solas');
+}
+
+function quitarPermisoInstitucional(id) {
+  operarIntegracion(() => api(`/integraciones/plataformas/${encodeURIComponent(id)}/servicio`, { metodo: 'DELETE' }), 'Permiso retirado');
 }
 
 function abrirVinculacion(id) {

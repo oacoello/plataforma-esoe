@@ -1107,3 +1107,5 @@ html[data-texto="muy-grande"] .control-texto::before { translate: 200% 0; }
 .institucion-chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 999px; background: var(--vidrio); border: 1px solid var(--vidrio-borde); font-size: var(--fs-sm); font-weight: 600; color: var(--texto); }
 .portal-institucional .badge { white-space: normal; max-width: 100%; line-height: 1.35; text-align: left; }
 .selector-institucion select { max-width: 240px; text-overflow: ellipsis; }
+.mis-plataformas { margin-bottom: 32px; }
+.mis-plataformas .toolbar { align-items: center; }
