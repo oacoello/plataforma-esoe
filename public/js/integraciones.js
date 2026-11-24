@@ -1,8 +1,38 @@
 const integraciones = { cargando: false, error: '', plataformas: [], cursos: [], catalogo: [] };
 
+const estadoPortales = { cargado: false, cargando: false, porClave: {} };
+
+async function cargarEstadoPortales() {
+  if (estadoPortales.cargado || estadoPortales.cargando) return;
+  estadoPortales.cargando = true;
+  try {
+    const respuesta = await fetch('/api/integraciones/estado', { headers: { Accept: 'application/json' } });
+    if (respuesta.ok) {
+      const { portales } = await respuesta.json();
+      estadoPortales.porClave = Object.fromEntries((portales || []).map((p) => [p.clave, p]));
+    }
+  } catch {}
+  estadoPortales.cargado = true;
+  estadoPortales.cargando = false;
+  document.querySelectorAll('[data-estado-portal]').forEach((nodo) => {
+    nodo.outerHTML = insigniaDePortal(nodo.dataset.estadoPortal);
+  });
+}
+
+function insigniaDePortal(clave) {
+  if (!estadoPortales.cargado) return `<span class="badge badge-neutral" data-estado-portal="${esc(clave)}">Comprobando…</span>`;
+  const estado = estadoPortales.porClave[clave];
+  if (!estado) return '<span class="badge badge-neutral">Sin datos</span>';
+  if (!estado.enLinea) return '<span class="badge badge-neutral">Sin respuesta</span>';
+  if (estado.enMantenimiento) return '<span class="badge badge-neutral">En mantenimiento</span>';
+  if (!estado.serviciosWeb) return '<span class="badge badge-choco">En línea · sin vinculación (servicios web apagados)</span>';
+  return '<span class="badge badge-olive">En línea · admite vinculación</span>';
+}
+
 function renderPortalesInstitucionales() {
+  cargarEstadoPortales();
   const tarjetas = PLATAFORMAS_PUBLICAS.map((plataforma) => `
-    <article class="portal-institucional"><h3>${esc(plataforma.nombre)}</h3><p>${esc(plataforma.descripcion)}</p>
+    <article class="portal-institucional"><h3>${esc(plataforma.nombre)}</h3>${insigniaDePortal(plataforma.clave)}<p>${esc(plataforma.descripcion)}</p>
       <a class="btn btn-outline" href="${esc(plataforma.urlBase)}" target="_blank" rel="noopener noreferrer">Abrir portal<span class="solo-lectores"> ${esc(plataforma.nombre)}</span> ↗</a>
     </article>`).join('');
   return `<section aria-label="Portales institucionales"><h2>Portales de formación</h2><p>Acceda a los sitios oficiales. Cada portal conserva su propio inicio de sesión.</p><div class="portales-institucionales">${tarjetas}</div></section>`;
@@ -35,7 +65,8 @@ function pintarIntegraciones() {
   }
 
   const registradas = new Set(integraciones.plataformas.map((p) => p.urlBase));
-  const sugeridas = integraciones.catalogo.filter((p) => !registradas.has(p.urlBase));
+  const codigoActivo = typeof institucionActual === 'function' && institucionActual() ? institucionActual().codigo : '';
+  const sugeridas = integraciones.catalogo.filter((p) => !registradas.has(p.urlBase) && (!codigoActivo || p.institucion === codigoActivo));
 
   const filas = integraciones.plataformas.map((p) => `
     <tr>

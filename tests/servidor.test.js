@@ -18,6 +18,18 @@ test('salud: responde OK sin cache', async () => {
   assert.equal(cuerpo.baseDeDatos, 'SIN_CONFIGURAR');
 });
 
+test('salud: informa la version desplegada solo si tiene formato de commit', async () => {
+  const conVersion = await levantar({ APP_VERSION: 'aec23db0f1e2a3b4c5d6' });
+  const conBasura = await levantar({ APP_VERSION: '<script>' });
+  try {
+    assert.equal((await (await conVersion.pedir('/api/health')).json()).version, 'aec23db0f1e2');
+    assert.equal((await (await conBasura.pedir('/api/health')).json()).version, undefined);
+  } finally {
+    await conVersion.cerrar();
+    await conBasura.cerrar();
+  }
+});
+
 test('salud: dice si la base responde, y 503 sin detalles si no', async () => {
   const sana = await levantar({}, { db: { consultar: async () => ({ rows: [{}] }) } });
   const caida = await levantar({}, { db: { consultar: async () => { throw new Error('password authentication failed for user x'); } } });

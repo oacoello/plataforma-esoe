@@ -456,6 +456,7 @@ function renderEstructuraView() {
       <td>${esc(p.fechaInicio)}</td>
       <td>${esc(p.fechaFin)}</td>
       <td><span class="badge badge-choco">${p.activo ? 'ACTIVO' : 'CERRADO'}</span></td>
+      ${puedeAdministrar() ? `<td>${accionesRegistro('periodo', p.id)}</td>` : ''}
     </tr>
   `).join('');
 
@@ -475,6 +476,7 @@ function renderEstructuraView() {
           <p style="font-size:var(--fs-sm); color:var(--piedra);">
             Estudiantes inscritos en la promoción: <strong>${totalAlumnos} alumnos</strong>
           </p>
+          ${accionesRegistro('promocion', prom.id)}
         </div>
       </div>
     `;
@@ -500,6 +502,7 @@ function renderEstructuraView() {
                 <th>Fecha de Inicio</th>
                 <th>Fecha de Cierre</th>
                 <th>Estado</th>
+                ${puedeAdministrar() ? '<th>Acciones</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -561,6 +564,7 @@ function renderEstudiantesView() {
         <td>
           <button class="btn btn-outline btn-sm" data-on-click="verExpedienteEstudiante('${esc(est.id)}')">${ICONS.eye} Expediente</button>
           <button class="btn btn-primary btn-sm" data-on-click="verBoletinDeEstudiante('${esc(est.id)}')">Boletín</button>
+          ${accionesRegistro('estudiante', est.id)}
         </td>
       </tr>
     `;
@@ -673,6 +677,7 @@ function renderCatedraticosView() {
         <td>${gradoBadge}</td>
         <td>${esc(cat.titulo)}</td>
         <td>${resumenClases}</td>
+        ${puedeAdministrar() ? `<td>${accionesRegistro('catedratico', cat.id)}</td>` : ''}
       </tr>
     `;
   }).join('');
@@ -705,6 +710,7 @@ function renderCatedraticosView() {
                 <th>Condición / Grado</th>
                 <th>Título Académico</th>
                 <th>Clases</th>
+                ${puedeAdministrar() ? '<th>Acciones</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -759,6 +765,7 @@ function renderClasesView() {
         <td>
           <button class="btn btn-outline btn-sm" data-on-click="irAAsistenciaDeClase('${esc(cl.id)}')">Asistencia</button>
           ${appState.currentRole !== 'ESTUDIANTE' ? `<button class="btn btn-primary btn-sm" data-on-click="irACalificacionesDeClase('${esc(cl.id)}')">Calificar</button>` : ''}
+          ${accionesRegistro('clase', cl.id)}
         </td>
       </tr>
     `;
@@ -812,7 +819,37 @@ function renderClasesView() {
         </div>
       </div>
     </div>
+    ${renderCatalogoMaterias()}
   `;
+}
+
+function renderCatalogoMaterias() {
+  if (!puedeAdministrar()) return '';
+  const filas = store.materias.map((m) => `
+    <tr>
+      <td><strong>${esc(m.codigo)}</strong></td>
+      <td>${esc(m.nombre)}</td>
+      <td>${esc(m.uv)} UV</td>
+      <td>${store.clases.filter((c) => c.materiaId === m.id).length}</td>
+      <td>${accionesRegistro('materia', m.id)}</td>
+    </tr>`).join('');
+  return `
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <h2>Catálogo de materias</h2>
+          <p>Corrija o borre materias; solo se pueden borrar las que no tienen clases.</p>
+        </div>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr><th>Código</th><th>Asignatura</th><th>Unidades</th><th>Clases</th><th>Acciones</th></tr></thead>
+            <tbody>${filas || `<tr><td colspan="5">${emptyState('Todavía no hay materias.')}</td></tr>`}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderAsistenciaView() {
@@ -1206,12 +1243,14 @@ function renderBoletinView() {
 }
 
 function openModal(titulo, bodyHtml) {
+  edicionActiva = null;
   document.getElementById('modal-title').textContent = titulo;
   document.getElementById('modal-body-content').innerHTML = bodyHtml;
   document.getElementById('modal-backdrop').classList.remove('hidden');
 }
 
 function closeModal() {
+  edicionActiva = null;
   document.getElementById('modal-backdrop').classList.add('hidden');
 }
 

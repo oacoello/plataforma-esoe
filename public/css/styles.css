@@ -1096,3 +1096,12 @@ html[data-texto="muy-grande"] .control-texto::before { translate: 200% 0; }
   .login-form-panel .barra-ambiente { position: fixed; left: auto; right: 16px; bottom: max(16px, env(safe-area-inset-bottom, 0px)); translate: none; margin: 0; width: 180px; flex-direction: column; border-radius: 999px; }
   .barra-ambiente .control-texto { margin-left: 0; }
 }
+
+.acciones-registro { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.btn.btn-peligro { color: var(--negativo-hondo); border-color: color-mix(in srgb, var(--negativo) 55%, transparent); }
+.btn.btn-peligro:hover { background: color-mix(in srgb, var(--negativo) 12%, transparent); }
+.btn.btn-peligro-lleno { background: var(--negativo-hondo); border-color: var(--negativo-hondo); color: var(--papel); }
+.confirmacion-borrado { font-size: var(--fs-base); color: var(--texto); max-width: 60ch; }
+.selector-institucion { display: flex; align-items: center; }
+.selector-institucion select { width: auto; min-height: 36px; padding: 4px 12px; border-radius: 999px; font-size: var(--fs-sm); }
+.institucion-chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 999px; background: var(--vidrio); border: 1px solid var(--vidrio-borde); font-size: var(--fs-sm); font-weight: 600; color: var(--texto); }

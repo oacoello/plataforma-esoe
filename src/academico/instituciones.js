@@ -17,7 +17,7 @@ function crearRutasInstituciones({ auth, db, permisos }) {
           ORDER BY (codigo = 'ESOE') DESC, nombre`,
         [req.vinculo.institucionId]);
       res.set('Cache-Control', 'no-store');
-      res.json({ instituciones: rows });
+      res.json({ instituciones: rows, esRoot: req.vinculo.esRoot, institucionActivaId: req.vinculo.institucionId });
     } catch (error) {
       next(error);
     }

@@ -15,6 +15,7 @@ const { crearRutasEstructura } = require('./academico/estructura');
 const { crearRutasExpedientes } = require('./academico/expedientes');
 const { crearRutasDeClases } = require('./academico/clases');
 const { crearRutasInstituciones } = require('./academico/instituciones');
+const { crearRutasDeBorrado } = require('./academico/borrado');
 const { crearRutasDeVoz } = require('./voz/rutas');
 
 const DIRECTORIO_PUBLICO = path.join(__dirname, '..', 'public');
@@ -101,7 +102,7 @@ function crearApp(config, dependencias = {}) {
 
   app.get('/api/health', limitarApi, async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    const cuerpo = { status: 'OK', service: 'ESOE-SMS-Platform', timestamp: new Date().toISOString() };
+    const cuerpo = { status: 'OK', service: 'ESOE-SMS-Platform', timestamp: new Date().toISOString(), ...(config.version ? { version: config.version } : {}) };
     if (!db) return res.json({ ...cuerpo, baseDeDatos: 'SIN_CONFIGURAR' });
     let espera;
     try {
@@ -155,6 +156,7 @@ function crearApp(config, dependencias = {}) {
   app.use('/api', crearRutasExpedientes({ auth, db, permisos }));
   app.use('/api', crearRutasDeClases({ auth, db, permisos }));
   app.use('/api', crearRutasInstituciones({ auth, db, permisos }));
+  app.use('/api', crearRutasDeBorrado({ auth, db, permisos }));
 
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Recurso no encontrado.' });

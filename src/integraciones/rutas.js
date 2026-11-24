@@ -20,6 +20,35 @@ function crearRutasDeIntegraciones({ config, auth, db, permisos, crearAlmacenLim
   const cifrador = crearCifrador(config.integraciones.claveCifrado);
   const moodle = crearClienteMoodle(config.integraciones);
 
+  const DURACION_ESTADO_MS = 10 * 60 * 1000;
+  let estadoEnCache = null;
+
+  async function consultarEstado() {
+    if (estadoEnCache && Date.now() - estadoEnCache.momento < DURACION_ESTADO_MS) return estadoEnCache.portales;
+    const portales = await Promise.all(PLATAFORMAS_CONOCIDAS.map(async (p) => {
+      try {
+        const sitio = await moodle.configuracionPublica(p.urlBase);
+        return {
+          clave: p.clave, institucion: p.institucion, enLinea: true,
+          serviciosWeb: sitio.serviciosWeb && sitio.servicioMovil, enMantenimiento: sitio.enMantenimiento
+        };
+      } catch {
+        return { clave: p.clave, institucion: p.institucion, enLinea: false, serviciosWeb: false, enMantenimiento: false };
+      }
+    }));
+    estadoEnCache = { momento: Date.now(), portales };
+    return portales;
+  }
+
+  rutas.get('/estado', async (req, res, next) => {
+    try {
+      res.set('Cache-Control', 'public, max-age=300');
+      res.json({ portales: await consultarEstado(), revisado: new Date(estadoEnCache.momento).toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   if (!db || !cifrador) {
     rutas.use((req, res) => {
       res.status(503).json({ error: 'Las conexiones con otras plataformas no estan configuradas en este servidor.' });

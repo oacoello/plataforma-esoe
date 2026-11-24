@@ -66,6 +66,8 @@ async function api(ruta, opciones) {
     cabeceras.Authorization = `Bearer ${await sesionReal.clerk.session.getToken()}`;
   }
   if (cuerpo !== undefined) cabeceras['Content-Type'] = 'application/json';
+  const elegida = typeof leerInstitucionElegida === 'function' ? leerInstitucionElegida() : '';
+  if (elegida) cabeceras['X-Institucion'] = elegida;
   const respuesta = await fetch(`/api${ruta}`, {
     method: metodo,
     headers: cabeceras,
@@ -118,6 +120,7 @@ async function entrarConSesionReal() {
     showToast('Sesión iniciada. Los datos académicos se cargan desde la dirección institucional de la plataforma.');
   } else {
     await cargarDesdeServidor();
+    await cargarInstituciones();
   }
 
   mostrarPantalla('app');
@@ -158,6 +161,7 @@ async function iniciarSesionReal(configuracion) {
 }
 
 async function cerrarSesionReal() {
+  if (typeof guardarInstitucionElegida === 'function') guardarInstitucionElegida('');
   await sesionReal.clerk.signOut({ redirectUrl: window.location.origin + window.location.pathname });
   window.location.reload();
 }

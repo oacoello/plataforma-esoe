@@ -72,7 +72,7 @@ test('asistente: cancelar una lectura anterior no oculta el control de la nueva 
     const escuchar = pagina.getByRole('button', { name: 'Escuchar respuesta', exact: true });
     await escuchar.click();
     await escuchar.click();
-    await pagina.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    await pagina.evaluate(() => new Promise((resolve) => setTimeout(resolve, 200)));
     assert.equal(await pagina.evaluate(() => globalThis.speechSynthesis.speaking), true);
     const detener = pagina.getByRole('button', { name: 'Detener voz', exact: true });
     assert.equal(await detener.isVisible(), true);

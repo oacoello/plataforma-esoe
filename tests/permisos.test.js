@@ -202,7 +202,7 @@ test('permisos: un identificador que no es UUID no llega a la base', sinBase, as
   assert.equal((await servidor.pedir(`/api/clases/${inexistente}/asistencia`, { headers: como('CATEDRATICO', CUENTA.catedraticoUno) })).status, 404);
 });
 
-const PUBLICAS = new Set(['/api/health', '/api/config', '/api/live', '/api/ready']);
+const PUBLICAS = new Set(['/api/health', '/api/config', '/api/live', '/api/ready', '/api/integraciones/estado']);
 
 function rutasSinGuardian(app) {
   const sinGuardian = [];

@@ -45,9 +45,26 @@
   };
   const vozDisponible = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
   let lecturaActiva = null;
+  let reanudar = null;
+  let voces = [];
+  function cargarVoces() {
+    if (vozDisponible) voces = window.speechSynthesis.getVoices();
+  }
+  if (vozDisponible) {
+    cargarVoces();
+    if (typeof window.speechSynthesis.addEventListener === 'function') window.speechSynthesis.addEventListener('voiceschanged', cargarVoces);
+  }
+  function vozEnEspanol() {
+    const lista = voces.length ? voces : (vozDisponible ? window.speechSynthesis.getVoices() : []);
+    return lista.find((voz) => voz.lang.toLowerCase() === 'es-hn')
+      || lista.find((voz) => voz.lang.toLowerCase().startsWith('es-419'))
+      || lista.find((voz) => voz.lang.toLowerCase().startsWith('es')) || null;
+  }
   function parar() {
     lecturaActiva = null;
-    if (vozDisponible) window.speechSynthesis.cancel();
+    clearInterval(reanudar);
+    reanudar = null;
+    if (vozDisponible && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) window.speechSynthesis.cancel();
     detener.hidden = true;
   }
   function ocultar() {
@@ -87,26 +104,41 @@
   }
   escuchar.addEventListener('click', () => {
     parar();
-    const lectura = new SpeechSynthesisUtterance(respuesta.textContent);
-    lectura.lang = 'es-HN';
-    const voces = window.speechSynthesis.getVoices();
-    lectura.voice = voces.find((voz) => voz.lang.toLowerCase() === 'es-hn')
-      || voces.find((voz) => voz.lang.toLowerCase().startsWith('es')) || null;
+    const texto = respuesta.textContent.trim();
+    if (!texto) return;
+    const lectura = new SpeechSynthesisUtterance(texto);
+    const voz = vozEnEspanol();
+    lectura.lang = voz ? voz.lang : 'es-ES';
+    if (voz) lectura.voice = voz;
+    lectura.rate = 1;
     lecturaActiva = lectura;
-    lectura.onend = () => {
+    const terminar = () => {
       if (lecturaActiva !== lectura) return;
       lecturaActiva = null;
+      clearInterval(reanudar);
+      reanudar = null;
       detener.hidden = true;
     };
+    lectura.onend = terminar;
     lectura.onerror = (evento) => {
       if (lecturaActiva !== lectura) return;
-      lecturaActiva = null;
-      detener.hidden = true;
+      terminar();
       if (['canceled', 'interrupted'].includes(evento.error)) return;
       contenedor.querySelector('.asistente-nota').textContent = 'No se pudo reproducir la voz. Puede leer la respuesta en este panel.';
     };
     detener.hidden = false;
-    window.speechSynthesis.speak(lectura);
+    setTimeout(() => {
+      if (lecturaActiva !== lectura) return;
+      if (typeof window.speechSynthesis.resume === 'function') window.speechSynthesis.resume();
+      window.speechSynthesis.speak(lectura);
+      reanudar = setInterval(() => {
+        if (lecturaActiva !== lectura) return;
+        if (typeof window.speechSynthesis.pause === 'function' && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        }
+      }, 10000);
+    }, 80);
   });
   detener.addEventListener('click', parar);
   document.addEventListener('visibilitychange', () => { if (document.hidden) parar(); });

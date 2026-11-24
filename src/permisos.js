@@ -13,10 +13,17 @@ function esUuid(valor) {
 function crearPermisos(db) {
   async function expedienteDe(usuarioIdProveedor) {
     const { rows } = await db.consultar(
-      'SELECT id, rol, referencia_id, institucion_id, activo FROM usuarios WHERE proveedor_id = $1',
+      'SELECT id, rol, referencia_id, institucion_id, activo, es_root FROM usuarios WHERE proveedor_id = $1',
       [usuarioIdProveedor]
     );
     return rows[0] || null;
+  }
+
+  async function institucionElegida(solicitada, propia) {
+    if (!solicitada) return propia;
+    if (!esUuid(solicitada)) return null;
+    const { rows } = await db.consultar('SELECT id FROM instituciones WHERE id = $1 AND activa = TRUE', [solicitada]);
+    return rows[0] ? rows[0].id : null;
   }
 
   async function resolverVinculo(req, res, next) {
@@ -24,11 +31,16 @@ function crearPermisos(db) {
       const fila = await expedienteDe(req.identidad.usuarioId);
       if (!fila) return res.status(403).json({ error: SIN_EXPEDIENTE, codigo: 'SIN_EXPEDIENTE' });
       if (fila.activo === false) return res.status(403).json({ error: CUENTA_INACTIVA, codigo: 'CUENTA_INACTIVA' });
+      const esRoot = fila.es_root === true && fila.rol === 'ADMIN';
+      const institucionId = esRoot ? await institucionElegida(req.get('x-institucion'), fila.institucion_id) : fila.institucion_id;
+      if (!institucionId) return res.status(422).json({ error: 'La institucion indicada no existe o no esta activa.', codigo: 'INSTITUCION_INVALIDA' });
       req.vinculo = Object.freeze({
         usuarioLocalId: fila.id,
         rolRegistrado: fila.rol,
         referenciaId: fila.referencia_id,
-        institucionId: fila.institucion_id
+        institucionId,
+        institucionPropiaId: fila.institucion_id,
+        esRoot
       });
       next();
     } catch (error) {

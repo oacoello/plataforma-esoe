@@ -46,6 +46,7 @@ function cargarConfig(env = process.env) {
   const config = {
     entorno,
     esProduccion: entorno === 'production',
+    version: /^[0-9a-f]{7,40}$/.test(env.APP_VERSION || '') ? env.APP_VERSION.slice(0, 12) : '',
     puerto: leerEntero(env.PORT, 8080),
     host: env.HOST || '0.0.0.0',
     origenesPermitidos: leerLista(env.CORS_ORIGINS),

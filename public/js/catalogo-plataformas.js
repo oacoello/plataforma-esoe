@@ -4,6 +4,7 @@
 const PLATAFORMAS_CONOCIDAS = Object.freeze([
   Object.freeze({
     clave: 'infop-elearning',
+    institucion: 'INFOP',
     nombre: 'INFOP — E-Learning',
     tipo: 'MOODLE',
     urlBase: 'https://plataformavirtual.infop.hn',
@@ -11,6 +12,7 @@ const PLATAFORMAS_CONOCIDAS = Object.freeze([
   }),
   Object.freeze({
     clave: 'infop-academias',
+    institucion: 'INFOP',
     nombre: 'INFOP — Academias',
     tipo: 'MOODLE',
     urlBase: 'https://academias.infop.hn',
@@ -18,6 +20,7 @@ const PLATAFORMAS_CONOCIDAS = Object.freeze([
   }),
   Object.freeze({
     clave: 'udh-aula',
+    institucion: 'UDH',
     nombre: 'UDH — Campus Virtual',
     tipo: 'MOODLE',
     urlBase: 'https://aula.udh.edu.hn',
@@ -25,6 +28,7 @@ const PLATAFORMAS_CONOCIDAS = Object.freeze([
   }),
   Object.freeze({
     clave: 'copeco-cenicac',
+    institucion: 'COPECO',
     nombre: 'COPECO — CENICAC',
     tipo: 'MOODLE',
     urlBase: 'https://cenicac.copeco.gob.hn',

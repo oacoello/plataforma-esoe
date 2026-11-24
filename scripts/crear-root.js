@@ -21,11 +21,11 @@ function datosRoot(env) {
 
 async function registrarAdministrador(cliente, cuenta, nombre, institucionId) {
   await cliente.query(
-    `INSERT INTO usuarios (username,proveedor_id,rol,nombre_completo,institucion_id,activo)
-     VALUES ($1,$2,'ADMIN',$3,$4,true)
+    `INSERT INTO usuarios (username,proveedor_id,rol,nombre_completo,institucion_id,activo,es_root)
+     VALUES ($1,$2,'ADMIN',$3,$4,true,true)
      ON CONFLICT (proveedor_id) DO UPDATE
        SET username=EXCLUDED.username,rol='ADMIN',nombre_completo=EXCLUDED.nombre_completo,
-           institucion_id=EXCLUDED.institucion_id,referencia_id=NULL,activo=true`,
+           institucion_id=EXCLUDED.institucion_id,referencia_id=NULL,activo=true,es_root=true`,
     [cuenta.username, cuenta.id, nombre, institucionId]);
 }
 

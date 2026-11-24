@@ -180,17 +180,21 @@ function motivoDelServidor(error) {
   return (error && error.message) || 'No se pudo guardar.';
 }
 
+let edicionActiva = null;
+
 async function crearEnServidor(tipo, local, mensajeDeExito) {
   const { ruta, cuerpo } = PARA_LA_API[tipo](local);
+  const edicion = edicionActiva && edicionActiva.tipo === tipo ? edicionActiva : null;
   try {
-    await api(ruta, { metodo: 'POST', cuerpo });
+    if (edicion) await api(`${ruta}/${encodeURIComponent(edicion.id)}`, { metodo: 'PUT', cuerpo });
+    else await api(ruta, { metodo: 'POST', cuerpo });
   } catch (error) {
     showToast(motivoDelServidor(error));
     return;
   }
   closeModal();
   await recargarDesdeServidor();
-  showToast(mensajeDeExito);
+  showToast(edicion ? 'Cambios guardados' : mensajeDeExito);
 }
 
 async function guardarNotaEnServidor(claseId, estudianteId, campo, valor) {
