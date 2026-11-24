@@ -83,16 +83,22 @@ function mostrarAvisoDeAcceso(texto) {
   aviso.classList.toggle('hidden', !texto);
 }
 
+const ROLES_DE_ACCESO = ['ADMIN', 'CATEDRATICO', 'ESTUDIANTE'];
+
+function identidadDesdeClerk(clerk) {
+  const metadatos = (clerk.user && clerk.user.publicMetadata) || {};
+  if (!ROLES_DE_ACCESO.includes(metadatos.rol)) throw new ErrorDeApi(403, null);
+  return { rol: metadatos.rol };
+}
+
 async function entrarConSesionReal() {
   const clerk = sesionReal.clerk;
   let identidad;
   try {
-    identidad = await api('/sesion');
+    identidad = sesionReal.sinServidor ? identidadDesdeClerk(clerk) : await api('/sesion');
   } catch (error) {
     document.getElementById('login-clerk').innerHTML = '';
-    mostrarAvisoDeAcceso(sesionReal.sinServidor
-      ? 'Sesión iniciada. Este sitio no tiene acceso a los datos académicos: entre por la dirección institucional de la plataforma.'
-      : error.estado === 403
+    mostrarAvisoDeAcceso(error.estado === 403
       ? 'Su cuenta todavía no tiene un rol asignado. Solicítelo a la administración.'
       : 'No se pudo validar la sesión. Intente de nuevo.');
     const salir = document.getElementById('login-salir');
@@ -108,7 +114,11 @@ async function entrarConSesionReal() {
   appState.currentView = identidad.rol === 'ESTUDIANTE' ? 'boletin' : 'dashboard';
 
   store = emptyStore();
-  await cargarDesdeServidor();
+  if (sesionReal.sinServidor) {
+    showToast('Sesión iniciada. Los datos académicos se cargan desde la dirección institucional de la plataforma.');
+  } else {
+    await cargarDesdeServidor();
+  }
 
   mostrarPantalla('app');
   renderSidebarAndHeader();
