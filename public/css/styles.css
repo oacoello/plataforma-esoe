@@ -842,11 +842,11 @@ html[data-noche] .btn.btn-entrar { border-color: var(--decoracion-viva); }
 }
 .intro[hidden] { display: none; }
 .intro-saliendo { opacity: 0; visibility: hidden; }
-.intro-video { width: min(56vmin, 520px, calc(100dvh - 400px)); min-width: 120px; height: auto; aspect-ratio: 1 / 1; }
-.intro-rotulo { color: var(--sobre-estructura-tenue); text-align: center; padding: 0 20px; }
+.intro-video { width: min(56vmin, 520px, calc(100dvh - 400px)); min-width: 120px; height: auto; aspect-ratio: 1 / 0.86; object-fit: cover; object-position: 50% 100%; }
+.intro-rotulo { color: var(--sobre-estructura-tenue); text-align: center; padding: 0 20px; font-size: var(--fs-sm); }
 .intro-entes { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 20px;
   animation: aparecer 1.2s var(--curva-entrada) 1.4s both; }
-.intro-entes .rotulo { color: var(--sobre-estructura-tenue); }
+.intro-entes .rotulo { color: var(--sobre-estructura-tenue); font-size: var(--fs-meta); }
 .intro-entes ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 32px; }
 .intro-entes li { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; max-width: 220px; }
 .intro-entes strong { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-lg); line-height: 1.1; color: var(--sobre-estructura); }
