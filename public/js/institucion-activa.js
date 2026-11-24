@@ -47,8 +47,8 @@ function pintarSelectorInstitucion() {
   }
   contenedor.innerHTML = `
     <label for="institucion-elegida" class="solo-lectores">Institución que administra</label>
-    <select id="institucion-elegida" class="form-control" data-on-change="cambiarInstitucion(this.value)">
-      ${institucionActiva.lista.map((i) => `<option value="${esc(i.id)}" ${i.id === actual.id ? 'selected' : ''}>${esc(i.siglas || i.codigo)} · ${esc(i.nombre)}</option>`).join('')}
+    <select id="institucion-elegida" class="form-control" title="Institución que administra" data-on-change="cambiarInstitucion(this.value)">
+      ${institucionActiva.lista.map((i) => `<option value="${esc(i.id)}" ${i.id === actual.id ? 'selected' : ''}>${esc(i.siglas || i.codigo)}</option>`).join('')}
     </select>`;
 }
 
