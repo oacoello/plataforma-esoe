@@ -157,6 +157,7 @@ function verIntro() {
   if (saltar) saltar.focus();
   if (!video || typeof video.play !== 'function') { cerrarIntro(); return false; }
   video.currentTime = 0;
+  video.playbackRate = 1.35;
   const reproduccion = video.play();
   if (reproduccion && typeof reproduccion.catch === 'function') reproduccion.catch(cerrarIntro);
   return true;
@@ -168,7 +169,9 @@ function prepararIntro() {
   const video = intro.querySelector('video');
   const barra = intro.querySelector('.intro-progreso span');
   if (video) {
-    video.addEventListener('ended', () => setTimeout(cerrarIntro, 500));
+    video.playbackRate = 1.35;
+    video.addEventListener('loadedmetadata', () => { video.playbackRate = 1.35; });
+    video.addEventListener('ended', () => setTimeout(cerrarIntro, 250));
     video.addEventListener('error', cerrarIntro);
     if (barra) {
       video.addEventListener('timeupdate', () => {
