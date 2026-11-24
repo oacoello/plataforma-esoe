@@ -47,6 +47,11 @@ jobs:
         run: |
           printf '{"autenticacion":{"proveedor":"clerk","llavePublica":"%s","dominio":"%s"},"integraciones":false}\n' "$CLERK_LLAVE_PUBLICA" "$CLERK_DOMINIO" > public/config-publica.json
           cat public/config-publica.json
+      - name: Version en los archivos de la vista
+        run: |
+          VERSION="${GITHUB_SHA::12}"
+          sed -i -E "s#(src=\"js/[a-z0-9-]+\.js)\"#\1?v=${VERSION}\"#g; s#(href=\"css/[a-z0-9-]+\.css)\"#\1?v=${VERSION}\"#g" public/index.html
+          grep -c "?v=${VERSION}" public/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
