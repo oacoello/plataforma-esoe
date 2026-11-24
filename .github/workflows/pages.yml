@@ -52,6 +52,12 @@ jobs:
           VERSION="${GITHUB_SHA::12}"
           sed -i -E "s#(src=\"js/[a-z0-9-]+\.js)\"#\1?v=${VERSION}\"#g; s#(href=\"css/[a-z0-9-]+\.css)\"#\1?v=${VERSION}\"#g" public/index.html
           grep -c "?v=${VERSION}" public/index.html
+      - name: Redireccion a la plataforma con servidor
+        env:
+          DESTINO: https://plataforma-esoe.vercel.app/
+        run: |
+          printf '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Plataforma ESOE</title><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=%s"><link rel="canonical" href="%s"></head><body><script>location.replace("%s"+location.hash)</script><p><a href="%s">Plataforma ESOE</a></p></body></html>\n' "$DESTINO" "$DESTINO" "$DESTINO" "$DESTINO" > public/index.html
+          cat public/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
