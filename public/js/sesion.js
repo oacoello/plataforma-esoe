@@ -121,8 +121,12 @@ async function iniciarSesionReal(configuracion) {
   await cargarScript(`https://${dominio}/npm/@clerk/clerk-js@6/dist/clerk.browser.js`, {
     'data-clerk-publishable-key': llavePublica
   });
+  const regreso = window.location.origin + window.location.pathname;
   await window.Clerk.load({
     ui: { ClerkUI: window.__internal_ClerkUICtor },
+    signInForceRedirectUrl: regreso,
+    signUpForceRedirectUrl: regreso,
+    afterSignOutUrl: regreso,
     localization: window.LOCALIZACION_ES
   });
 
@@ -136,7 +140,7 @@ async function iniciarSesionReal(configuracion) {
   if (sesionReal.clerk.isSignedIn) {
     await entrarConSesionReal();
   } else {
-    sesionReal.clerk.mountSignIn(document.getElementById('login-clerk'), { appearance: APARIENCIA_ACCESO });
+    sesionReal.clerk.mountSignIn(document.getElementById('login-clerk'), { appearance: APARIENCIA_ACCESO, routing: 'virtual', forceRedirectUrl: regreso, fallbackRedirectUrl: regreso });
     sesionReal.clerk.addListener(({ session }) => {
       if (session && !appState.authenticated) entrarConSesionReal();
     });
@@ -144,7 +148,7 @@ async function iniciarSesionReal(configuracion) {
 }
 
 async function cerrarSesionReal() {
-  await sesionReal.clerk.signOut();
+  await sesionReal.clerk.signOut({ redirectUrl: window.location.origin + window.location.pathname });
   window.location.reload();
 }
 
