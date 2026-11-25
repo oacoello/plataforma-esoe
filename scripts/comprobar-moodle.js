@@ -28,6 +28,7 @@ async function revisarDocroot(urlBase, red, informe) {
       if (respuesta.estado === 200) expuestos.push(archivo);
     } catch (error) {
       if (!(error instanceof ErrorDeRed)) throw error;
+      if (error.codigo === 'RESPUESTA_DEMASIADO_GRANDE' && error.estado === 200) expuestos.push(archivo);
     }
   }
   informe.datos.archivosExpuestos = expuestos;
