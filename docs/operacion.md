@@ -61,6 +61,293 @@ Las migraciones no se aplican desde el proceso web sin estado. Se ejecuta `npm r
 conexión directa y un rol autorizado para cambiar el esquema, antes de publicar la versión que las
 necesita. El proceso web conserva su rol sin privilegios de administración.
 
+## Registro y correlación de peticiones
+
+Cada evento del servidor sale por la salida estándar como **una línea JSON**, pensada para que un
+recolector (journald, Loki, CloudWatch) la ingiera sin parseo frágil:
+
+```json
+{"t":"2026-11-25T00:17:16.712Z","nivel":"info","servicio":"ESOE-SMS","entorno":"production","peticion":"5f1c...","mensaje":"peticion atendida","metodo":"GET","ruta":"/api/clases/:id","estado":200,"ms":12.4,"origen":"10.0.0.7"}
+```
+
+Toda respuesta que atiende la aplicación lleva la cabecera `x-peticion-id`. Si la petición entra con
+una propia y es válida (`[A-Za-z0-9_-]`, de 8 a 64 caracteres), se conserva para poder seguir una
+traza que empieza en la pasarela; si no lo es, se descarta y se genera un UUID.
+
+**Excepción, medida:** las respuestas que emite Node sin pasar por la aplicación **no llevan la
+cabecera**. Es el caso del `408` por cabeceras incompletas de la sección siguiente: Node cierra esa
+conexión antes de que la petición llegue a Express, así que el registro no deja línea de acceso ni
+identificador para ella. Un recuento de peticiones basado solo en este registro no las ve; para
+contarlas hace falta el registro de la pasarela o del balanceador. Ese identificador aparece en la línea
+de acceso y en el error de la misma petición, de modo que un `500` se ata a quién lo provocó.
+
+`LOG_NIVEL` acepta `depuracion`, `info`, `aviso`, `error` y `silencio` (por defecto `info`, y
+`silencio` cuando `NODE_ENV=test`). Las claves sensibles —credenciales, cookies, tokens, DNI,
+correo— se sustituyen por `[REDACTADO]` antes de serializar, a cualquier profundidad, así que el
+registro no se convierte en una fuga de datos personales.
+
+## Límites de tiempo del servidor HTTP
+
+Para que una conexión a medias no ocupe un hueco del servidor indefinidamente (*slowloris*):
+
+| Variable | Por defecto | Qué corta |
+|---|---|---|
+| `HTTP_KEEPALIVE_TIMEOUT_MS` | 5000 | conexión ociosa ya atendida |
+| `HTTP_HEADERS_TIMEOUT_MS` | 10000 | cabeceras que no terminan de llegar |
+| `HTTP_REQUEST_TIMEOUT_MS` | 30000 | petición completa |
+
+El orden `keepAlive < cabeceras < peticion` es obligatorio y la configuración se niega a arrancar si
+no se cumple. El intervalo con que Node revisa las conexiones a medias se deriva de esos valores
+(la mitad del menor, con un piso de 250 ms): sin eso Node solo revisaría cada 30 s y el límite de
+cabeceras no se aplicaría de verdad.
+
+**Alcance, medido:** estos tres límites solo rigen donde el proceso es dueño de su servidor HTTP, es
+decir el contenedor y el arranque con `npm start`. **En el despliegue sin estado de Vercel no
+aplican**: ahí el punto de entrada (`api/index.js`) entrega la aplicación a la plataforma, que es la
+que acepta las conexiones, y Express no puede imponer un plazo de cabeceras. En ese despliegue la
+protección contra conexiones a medias es la que ofrezca la plataforma, no esta. Las cuatro variables
+`HTTP_*` quedan sin efecto y no hay por qué fijarlas.
+
+## Reintentos ante fallos transitorios
+
+Las **lecturas** contra una plataforma externa (configuración pública de Moodle y las llamadas de
+consulta del servicio web) se reintentan hasta 3 veces con espera exponencial y *jitter*
+(100-200 ms, 200-400 ms), solo ante `TIEMPO_AGOTADO`, `SIN_CONEXION` o los estados 429, 502, 503 y
+504. El **envío de credenciales no se reintenta nunca**: insistir con una contraseña equivocada
+bloquea la cuenta del usuario en el sitio remoto.
+
+**De dónde sale esta clasificación.** No es una suposición: se comprobó contra el código de Moodle.
+En `lib/setup.php` (rama `MOODLE_405_STABLE`, líneas 354-375), el modo mantenimiento por CLI responde
+
+```php
+header($_SERVER['SERVER_PROTOCOL'] . ' 503 Moodle under maintenance');
+header('Retry-After: 300');
+```
+
+Ese bloque está en el arranque, antes de cualquier distinción de punto de entrada —su único
+condicional es `!CLI_SCRIPT`—, así que `/webservice/rest/server.php` y `/lib/ajax/service-nologin.php`
+reciben el mismo `503`, con cuerpo HTML y no JSON. La documentación de desarrollador de Moodle lo
+confirma: «During maintenance mode Moodle will serve a 503 Service Unavailable»
+(`docs.moodle.org/dev/Error_pages`), y en esa misma página el `502` queda descrito como fallo de un
+proxy o CDN por delante de Moodle, que es justamente lo que vale la pena reintentar.
+
+**Por eso se honra `Retry-After`.** Moodle pide 300 segundos y el presupuesto de reintentos son unos
+pocos segundos: insistir es tiempo perdido y además el usuario acabaría viendo «no respondió a
+tiempo» en lugar de «en mantenimiento». Cuando la respuesta trae un `Retry-After` por encima del
+presupuesto, no se reintenta: el fallo se traduce de inmediato a `EN_MANTENIMIENTO`. Un `503` sin
+`Retry-After`, como el de un proxy sobrecargado, sí se reintenta.
+
+El `500` se deja fuera a propósito: en Moodle los errores de la propia aplicación no viajan como
+estado HTTP, sino como `200` con una excepción en el cuerpo JSON, que `traducirError` ya traduce por
+`errorcode` (`sitemaintenance`, `upgraderunning`, `invalidtoken`...). Un `500` de verdad apunta a un
+fallo del servidor remoto, no a una indisponibilidad pasajera.
+
+`tests/ayuda.js` reproduce los dos casos tal como se midieron: el mantenimiento por CLI con su
+`503`, su `Retry-After: 300` y su cuerpo HTML, y el `503` de proxy sin `Retry-After`. Las pruebas
+fallan si se quita el reintento, comprobado por mutación.
+
+El migrador espera a que la base acepte conexiones hasta 6 intentos (500 ms a 8 s) ante
+`ECONNREFUSED`, `ENOTFOUND`, `EAI_AGAIN`, `ETIMEDOUT`, `ECONNRESET`, `57P03` y `53300`. Un error de
+credenciales (`28P01`) falla de inmediato. Así el contenedor no muere cuando la base todavía arranca.
+
+## El Moodle de la ESOE: versión y servidor web
+
+### Versión objetivo, y por qué
+
+`deploy/moodle/version-objetivo.json` fija la versión a la que el Moodle institucional debe estar
+alineado, con el commit comprobado. Lo esencial:
+
+| | Objetivo | Rechazado |
+|---|---|---|
+| Rama | `MOODLE_503_STABLE` | `main` |
+| `release` | `5.3.1+ (Build: 20261124)` | `6.0dev (Build: 20261124)` |
+| `maturity` | **`MATURITY_STABLE`** | **`MATURITY_ALPHA`** |
+| Commit comprobado | `5fdb0b5b1abfd8d1d084c616fd35d141db8ab27a` | — |
+
+Una rama de desarrollo de Moodle libera cada semana: el número de versión cambia con ella, no hay
+garantía de ruta de actualización del esquema entre dos instantáneas, y los parches de seguridad no
+siguen la disciplina de *backport* de una rama estable. Con expedientes de personal militar eso no es
+defendible. Como referencia externa, el `azuredeploy.json` de `Azure/Moodle` —mantenido al día— admite
+una sola versión en su `allowedValues`: `MOODLE_503_STABLE`.
+
+Comprobado: `public/version.php` existe también en 5.3 estable, así que el endurecimiento del servidor
+web de más abajo aplica igual, y el bloque de mantenimiento de `public/lib/setup.php` es idéntico
+(`503` + `Retry-After: 300`), de modo que los reintentos de la integración siguen siendo correctos
+después del cambio de rama.
+
+### Llevar el fork a la rama estable
+
+Esto se ejecuta en el repositorio del Moodle institucional, no aquí:
+
+```bash
+git remote add upstream https://github.com/moodle/moodle
+git fetch upstream MOODLE_503_STABLE
+git switch -c esoe/estable upstream/MOODLE_503_STABLE
+```
+
+Luego, en cada actualización, `git fetch upstream` y `git merge upstream/MOODLE_503_STABLE`. Lo que
+sea propio de la ESOE vive en `public/local/` y en un tema propio, nunca editando el núcleo: así una
+actualización de seguridad entra sin conflictos.
+
+**Lo que esto no arregla.** Cambiar de rama no convierte en estable una base de datos que ya se migró
+con el esquema de 6.0dev. Si el sitio ya corrió con 6.0dev, el esquema está por delante de 5.3 y
+Moodle **no baja de versión**: hay que partir de una base limpia o de un respaldo anterior a esa
+migración.
+
+### Comprobar la base antes de cambiar de rama
+
+`npm run comprobar:moodle-base` responde eso, y es lo primero que hay que correr: **antes** de apuntar
+el sitio a `esoe/estable`. No se puede dejar en manos de `comprobar:moodle`, que pregunta por la API
+del sitio y por tanto **llega tarde**: si el esquema está por delante, Moodle no arranca y no hay API a
+la que preguntar.
+
+Lee `MOODLE_DB_URL` en solo lectura y compara el `version` de la tabla de configuración contra el
+`version` que fija `deploy/moodle/version-objetivo.json`:
+
+| En la base | Qué significa | Resultado |
+|---|---|---|
+| no existe `mdl_config` | base limpia, sin instalar | **pasa**, con aviso |
+| `version` por detrás del objetivo | Moodle actualizará hacia adelante | **pasa**, con aviso de respaldar |
+| `version` igual al objetivo | ya alineada | **pasa** |
+| `version` por delante del objetivo | esquema de una rama de desarrollo | **falla**: base limpia o respaldo anterior |
+| la tabla existe sin fila `version` | instalación a medias | **pasa**, con aviso |
+| el rol no puede leer la tabla | no se puede afirmar nada | **falla** |
+
+La comparación es **por partes, no por coma flotante**: `2026100501.2` es posterior a `2026100501.02`,
+y leerlas como número decimal las ordenaría al revés. El prefijo se toma de `MOODLE_DB_PREFIX` (por
+omisión `mdl_`) y se valida contra el identificador que admite Moodle antes de tocar la base, porque un
+nombre de tabla no se puede parametrizar: un prefijo con comillas o punto y coma se rechaza sin
+conectar. El `release` instalado se registra junto al informe, de modo que en el registro queda escrito
+`6.0dev` y no solo un número.
+
+La política TLS es la misma de la plataforma, no una aparte: `MOODLE_DB_SSL` y `MOODLE_DB_CA_CERT`
+pasan por el mismo código que `DB_SSL` y `DB_CA_CERT`, así que la URL tampoco decide aquí. Esa base
+guarda expedientes, así que le aplica el mismo piso.
+
+`tests/moodle-base.test.js` monta los seis casos contra PostgreSQL real, con una base desechable por
+caso y un rol sin permiso de lectura para el último. Comprobado por mutación: desactivando el candado
+de «por delante del objetivo», la prueba del esquema de desarrollo falla.
+
+### Servidor web endurecido
+
+`deploy/moodle/nginx.conf` y `deploy/moodle/apache.conf` son equivalentes y aplican dos capas:
+
+1. **El docroot va a `public/`.** Desde la reestructura de Moodle 5.1 es ahí donde vive el código
+   servible. Apuntar a la raíz publica el árbol interno.
+2. **Reglas de denegación, por si alguien mueve el docroot.** Niegan 16 archivos y 5 directorios que
+   se comprobó que **no existen** dentro de `public/` (`composer.json`, `composer.lock`, `UPGRADING.md`,
+   `Gruntfile.js`, `phpunit.xml.dist`, `rector.php`, `vendor/`, `node_modules/`, `bin/`, `scripts/`...),
+   más los archivos ocultos y el estado de php-fpm. Si el docroot se mueve por error, esto lo tapa
+   mientras se corrige. La configuración de Azure no tiene esta segunda capa: confía solo en el docroot.
+
+Las rutas que **sí** se sirven desde `public/` —`admin`, `lib`, `local`, `theme`, `course`, `user`,
+`webservice`— no se niegan, y `tests/moodle-despliegue.test.js` falla si alguna llegara a negarse. Esa
+prueba verifica además el docroot, el enrutado por `r.php` de Moodle 5.1+, HSTS, `nosniff`, el mínimo
+de TLS, la redirección a HTTPS y que la versión fijada siga siendo estable.
+
+## Comprobación de la plataforma Moodle
+
+`npm run comprobar:moodle` interroga al Moodle configurado en `MOODLE_URL` y falla el despliegue si la
+integración no puede funcionar. No supone nada: todo lo que afirma lo pregunta.
+
+| Comprueba | Cómo | Si falla |
+|---|---|---|
+| `MOODLE_URL` canónica y HTTPS | `normalizarUrlBase` | fallo, sin salir a la red |
+| Es un Moodle, con servicios web y servicio móvil | `tool_mobile_get_public_config` | fallo |
+| El `DocumentRoot` apunta a `public/` | GET a `composer.json`, `composer.lock`, `UPGRADING.md`, `Gruntfile.js`, `phpunit.xml.dist` | fallo si alguno responde `200` |
+| El token puede llamar a las funciones que la integración usa | `core_webservice_get_site_info` → `functions` | fallo en las exigidas, aviso en las de notas |
+| La versión no es una rama de desarrollo | `release` de `site_info` | fallo en producción, aviso fuera |
+
+**Por qué el `DocumentRoot`.** Desde la reestructura de Moodle 5.1 el código servible vive en
+`public/`, y los cinco archivos de la tabla existen **solo** por encima de esa carpeta, nunca dentro.
+Si el servidor web responde `200` a alguno, el `DocumentRoot` apunta a la raíz del código y está
+publicando el árbol interno: `composer.json`, `composer.lock`, `admin/`, `lib/`, `scripts/`. El sitio
+parece funcionar igual, así que es un fallo silencioso. Las plantillas de despliegue de Azure para
+Moodle lo resuelven del mismo modo (`scripts/setup_webserver.sh`: `htmlRootDir="${htmlRootDir}/public"`).
+
+**Por qué la versión.** Una `release` que contenga `dev`, `alpha`, `beta` o `rc` es una rama de
+desarrollo con liberaciones semanales y madurez alfa, no una estable. En producción con expedientes
+reales eso es un fallo, no un aviso. Para referencia, las plantillas de Azure para Moodle solo admiten
+una versión en su `azuredeploy.json`: `MOODLE_503_STABLE`.
+
+## TLS con la base de datos: por qué la URL no decide
+
+`node-postgres` da prioridad a los parámetros de la cadena de conexión sobre el objeto `ssl` que le
+pasa la aplicación. Comprobado contra PostgreSQL real: con `?sslmode=disable` en la URL y
+`ssl: { rejectUnauthorized: true }` en el objeto, **la conexión se establece sin cifrado** y
+`pg_stat_ssl.ssl` queda en `false`. Es decir, la política podía declarar `verificado` y el tráfico
+viajar en claro, con los expedientes dentro.
+
+Por eso la plataforma ya no acepta que la URL lleve la política:
+
+| En `DATABASE_URL` | Qué pasa |
+|---|---|
+| `sslmode` **más débil** que `DB_SSL` | **no arranca**, y el error dice cuál pide cada uno |
+| `sslmode` **más fuerte** que `DB_SSL` | arranca con el más fuerte de los dos |
+| `sslmode=prefer` o `allow` | **no arranca**: dejan la decisión al servidor |
+| `sslmode` sin `DB_SSL` | se adopta como política (`disable`→`desactivado`, `require`→**`verificado`**, `verify-*`→`verificado`) |
+
+`require` se honra como **`verificado`**, no como «cifra y no compruebes». En libpq, `require` cifra
+sin validar el certificado, y eso deja pasar a un intermediario que suplante la base de datos. La
+plataforma no ofrece eso por omisión: para TLS sin verificar hay que pedirlo a propósito con
+`DB_SSL=requerido`, y con una base remota en producción sigue sin arrancar. La regla es por fuerza,
+nunca por igualdad: lo que pida más gana, lo que pida menos se rechaza.
+| `ssl`, `sslrootcert`, `sslcert`, `sslkey`, `sslnegotiation` | **no arranca**: use `DB_SSL` y `DB_CA_CERT` |
+
+En todos los casos la URL que la aplicación usa para conectar sale **sin** esos parámetros, así que el
+objeto `ssl` es siempre el que manda. Los demás parámetros (`application_name` y compañía) se
+conservan. Esto aplica a la aplicación, al migrador, a `preparar-base`, a `crear-root` y al
+comprobador de despliegue: todos pasan por la misma limpieza.
+
+### Dos agujeros más de la misma familia
+
+**`DB_SSL=requerido` con base remota en producción ya no arranca.** `requerido` cifra pero no
+comprueba el certificado (`rejectUnauthorized: false`), así que un intermediario puede suplantar la
+base de datos. Con una base remota en producción hay que usar `verificado`.
+
+**Los hosts se clasifican por lo que son, no por cómo empiezan.** Antes, cualquier nombre que
+empezara por un prefijo de red privada se tomaba por privado, así que un dominio público como
+`10.database.example` se consideraba local y la exigencia de TLS no se aplicaba. Y cualquier host sin
+punto se tomaba por local, lo que incluía una dirección IPv6 pública como `2606:4700::1111`. Ahora se
+analiza con `net.isIP` y, cuando es una IP de verdad, se comprueba contra la misma lista de redes
+internas que usa la defensa contra SSRF. Un nombre de una sola etiqueta sigue siendo local, porque no
+puede ser un dominio público: eso mantiene funcionando el `esoe-db` de `docker-compose`, y hay una
+prueba que falla si deja de ser así.
+
+## Calificación y puntaje máximo: por qué hace falta un candado
+
+Dos disparadores se vigilaban mutuamente y ninguno bloqueaba la fila de la tarea: el de la
+calificación leía el puntaje máximo vigente y el del puntaje máximo miraba las notas ya puestas. Con
+las dos operaciones a la vez, **las dos comprobaciones pasaban con el estado anterior y las dos
+confirmaban**. Reproducido contra PostgreSQL real: un administrador baja el máximo de 100 a 50
+mientras el catedrático califica con 90, y queda en la base una nota de 90 con un tope de 50.
+
+La migración `0012_calificacion_serializada.sql` reemplaza `exigir_nota_dentro_del_puntaje` para que
+lea la tarea con `FOR UPDATE`. Eso serializa las dos operaciones en cualquier orden:
+
+* si la bajada del máximo va primero, la calificación espera, relee `50` y se rechaza;
+* si la calificación va primero, la bajada espera, ve la nota de `90` y se rechaza.
+
+`tests/calificacion-concurrente.test.js` monta la carrera de verdad, con dos conexiones y dos
+transacciones, y comprueba las dos caras: **sin** la migración el invariante se rompe, **con** ella
+aguanta. También comprueba que la función viva en el esquema real toma el candado.
+
+La migración 0011 no se edita: una migración ya aplicada no se toca, y el migrador lo rechaza por
+huella. El cambio entra como migración nueva.
+
+## El rol de la aplicación y la versión del esquema
+
+`preparar-base` retira al rol de la aplicación todo permiso sobre `migraciones_aplicadas` y luego le
+concede **solo `SELECT`**. Sin esa lectura, `npm run comprobar:despliegue` fallaba siempre aunque todo
+estuviera bien: la consulta de la versión moría con `42501` (permiso denegado), que el manejador no
+distinguía de `42P01` (sin esquema), y tampoco servía ejecutarlo como administrador porque el propio
+comprobador rechaza roles con privilegios de administración.
+
+La versión del esquema no es un dato sensible y la herramienta de despliegue la necesita. Escribirla
+sigue prohibido: `tests/permisos-base.test.js` comprueba que el rol lee la versión y que el `INSERT`,
+el `UPDATE` y el `DELETE` sobre esa tabla siguen devolviendo `42501`. El comprobador, además, ya
+distingue los dos códigos y dice qué ejecutar.
+
 ## Comprobación previa al despliegue
 
 `npm run comprobar:despliegue` valida contra la base real, sin modificarla, y termina con código

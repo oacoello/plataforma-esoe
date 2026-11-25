@@ -82,6 +82,7 @@ async function crearBaseDePrueba() {
   const db = crearBaseDeDatos(url.toString());
   return {
     db,
+    url: url.toString(),
     async cerrar() {
       await db.cerrar();
       await admin.query(`DROP DATABASE IF EXISTS ${nombre}`);
@@ -102,7 +103,15 @@ async function crearMoodleFalso(opciones = {}) {
       { id: 78, fullname: 'Homonimo Dos', email: 'repetido@institucion.example', idnumber: '' }
     ],
     peticiones: [],
-    caido: false
+    caido: false,
+    fallosTransitorios: 0,
+    enMantenimientoCli: false,
+    release: opciones.release || '4.5',
+    exponeArbolInterno: opciones.exponeArbolInterno === true,
+    funciones: opciones.funciones || [
+      'core_webservice_get_site_info', 'core_enrol_get_users_courses',
+      'core_user_get_users_by_field', 'gradereport_overview_get_course_grades'
+    ]
   };
 
   const servidor = http.createServer((req, res) => {
@@ -117,6 +126,27 @@ async function crearMoodleFalso(opciones = {}) {
         res.end(JSON.stringify(dato));
       };
       if (estado.caido) return responder({ error: 'caido' }, 500);
+      if (req.method === 'GET') {
+        const archivo = url.pathname.replace(/^\//, '');
+        const internos = ['composer.json', 'composer.lock', 'UPGRADING.md', 'Gruntfile.js', 'phpunit.xml.dist'];
+        if (estado.exponeArbolInterno && internos.includes(archivo)) {
+          return responder({ name: 'moodle/moodle' }, 200);
+        }
+        return responder({ error: 'no encontrado' }, 404);
+      }
+      if (estado.enMantenimientoCli) {
+        res.writeHead(503, {
+          Status: '503 Moodle under maintenance',
+          'Retry-After': '300',
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        });
+        return res.end('<h1>Sorry, maintenance in progress</h1>');
+      }
+      if (estado.fallosTransitorios > 0) {
+        estado.fallosTransitorios -= 1;
+        return responder({ error: 'no disponible' }, 503);
+      }
 
       if (url.pathname === '/lib/ajax/service-nologin.php') {
         return responder([{ error: false, data: {
@@ -140,7 +170,11 @@ async function crearMoodleFalso(opciones = {}) {
         if (token === estado.tokenServicio) {
           switch (campos.get('wsfunction')) {
             case 'core_webservice_get_site_info':
-              return responder({ userid: 2, fullname: 'Servicio', sitename: 'Moodle de pruebas', release: '4.5' });
+              return responder({
+                userid: 2, fullname: 'Servicio', sitename: 'Moodle de pruebas',
+                release: estado.release,
+                functions: estado.funciones.map((name) => ({ name, version: estado.release }))
+              });
             case 'core_user_get_users_by_field': {
               const campo = campos.get('field');
               const valor = String(campos.get('values[0]') || '').toLowerCase();

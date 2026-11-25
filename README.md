@@ -116,6 +116,16 @@ Antes de dirigir tráfico a una versión nueva, se comprueba el entorno real al 
 npm run comprobar:despliegue
 ```
 
+Y antes de levantar el Moodle institucional sobre la rama estable, se comprueba que su base de datos
+no arrastre el esquema de una rama de desarrollo, porque Moodle no baja de versión:
+
+```bash
+npm run comprobar:moodle-base
+```
+
+Esto va **antes** que `npm run comprobar:moodle`, que interroga al sitio ya levantado: si el esquema
+está por delante, el sitio no arranca y no hay API a la que preguntar.
+
 Las presentaciones a clientes usan una cuenta real de Clerk con datos de una institución de
 demostración. No existe un formulario alternativo para omitir la autenticación. El nombre de la
 bienvenida procede de la sesión verificada y el recorrido guiado explica las herramientas del perfil.
@@ -140,7 +150,24 @@ La vista web estática se publica en GitHub Pages desde `public/`.
 
 ---
 
-## 5. Documentación
+## 5. Observabilidad y Resiliencia
+
+* **Registro estructurado:** una línea JSON por evento, con `x-peticion-id` en toda respuesta que
+  atiende la aplicación, para correlacionar el acceso y el error de una misma petición. Las
+  credenciales, cookies, tokens, DNI y correos se redactan antes de serializar, incluido el mensaje
+  de un error. Las respuestas que emite Node sin llegar a Express (el `408` por cabeceras
+  incompletas) quedan fuera del registro.
+* **Límites de tiempo HTTP:** `keepAlive`, cabeceras y petición completa, con el intervalo de revisión
+  de conexiones derivado de ellos para que el corte se aplique de verdad. Solo rigen donde el proceso
+  es dueño del servidor HTTP: **en el despliegue sin estado de Vercel no aplican.**
+* **Reintentos con espera exponencial:** en las lecturas a plataformas externas y en la espera a que
+  la base de datos arranque. Nunca al enviar credenciales.
+* **Seguridad en el pipeline:** CodeQL (`security-extended`), revisión de dependencias en cada PR,
+  `npm audit`, búsqueda de secretos y actualizaciones automáticas con Dependabot.
+
+Los detalles operativos están en [`docs/operacion.md`](docs/operacion.md).
+
+## 6. Documentación
 
 * [Manual de procedimientos](docs/manual.md): entorno, variables, verificación, estilo del código,
   archivos derivados y despliegue.
